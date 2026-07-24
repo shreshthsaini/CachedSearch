@@ -119,18 +119,19 @@ from cachedsearch import cached_search
 ```
 
 **2. Replace your search loop.** Wherever you generate N candidates and keep
-the best, call `cached_search` instead. It takes any diffusers video pipeline
-and any verifier you already trust.
+the best, call `cached_search` instead. It takes any diffusers video pipeline.
+The verifier defaults to ImageReward averaged over 8 frames, the scorer behind
+every number in the paper; pass `verifier=your_scorer` (any callable taking
+frames and a prompt and returning a float, higher is better) to use your own.
 
 ```python
 result = cached_search(
     pipe,                       # your diffusers video pipeline
     "a red fox running through deep snow",
-    verifier=my_scorer,         # (frames, prompt) -> float, higher is better
     n=8,                        # search width
     tau=0.10,                   # caching threshold (see step 3 for other models)
     mode="commit",              # regenerate the winner at full compute
-)
+)                               # verifier defaults to ImageReward
 
 result.video          # delivered video: a genuine full-compute sample
 result.seed           # the seed that won

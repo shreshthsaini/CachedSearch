@@ -271,7 +271,7 @@
       <div class="split">
         <div>
           <p>CachedSearch wraps generation rather than replacing your model, so adoption changes your search loop and nothing else.</p>
-          <p><code class="i">pipe</code> is any diffusers video pipeline; <code class="i">my_scorer</code> is any verifier you already trust. One number is model-specific, the caching threshold, and the repository ships a calibration script that measures it for a new architecture in about two GPU-hours.</p>
+          <p><code class="i">pipe</code> is any diffusers video pipeline. The verifier defaults to ImageReward averaged over eight frames, the scorer behind every number here; pass <code class="i">verifier=</code> to use your own. One number is model-specific, the caching threshold, and the repository ships a calibration script that measures it for a new architecture in about two GPU-hours.</p>
           <p><a href="https://github.com/shreshthsaini/CachedSearch#use-it-on-your-model">Full adoption guide &rarr;</a></p>
         </div>
 <pre><span class="c"># pip install -r requirements.txt</span>
@@ -279,9 +279,8 @@
 
 result = cached_search(
     pipe, prompt,
-    verifier=my_scorer,
     n=8, tau=0.10,
-)
+)   <span class="c"># verifier= to override</span>
 result.video   <span class="c"># full-compute sample</span>
 result.seed    <span class="c"># the winning seed</span></pre>
       </div>

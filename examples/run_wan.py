@@ -10,30 +10,7 @@ import argparse
 import torch
 from diffusers import AutoencoderKLWan, WanPipeline
 
-from cachedsearch import cached_search
-
-
-def load_imagereward_verifier(device="cuda", num_frames=8):
-    """ImageReward averaged over uniformly spaced frames: our default verifier.
-
-    Any callable (frames, prompt) -> float works here. Use whatever scorer your
-    workflow already trusts; CachedSearch never assumes a particular verifier.
-    """
-    import ImageReward as RM
-    import numpy as np
-    from PIL import Image
-
-    model = RM.load("ImageReward-v1.0", device=device)
-
-    def verifier(frames, prompt):
-        idx = np.linspace(0, len(frames) - 1, num_frames).astype(int)
-        scores = [
-            model.score(prompt, Image.fromarray(np.asarray(frames[i]).astype("uint8")))
-            for i in idx
-        ]
-        return float(np.mean(scores))
-
-    return verifier
+from cachedsearch import cached_search, imagereward_verifier
 
 
 def main():
@@ -44,6 +21,7 @@ def main():
     ap.add_argument("--tau", type=float, default=0.10, help="caching threshold")
     ap.add_argument("--mode", default="commit", choices=["commit", "keep"])
     ap.add_argument("--out", default="delivered.mp4")
+    # Pass --verifier to swap in your own scorer; the default is ImageReward.
     args = ap.parse_args()
 
     vae = AutoencoderKLWan.from_pretrained(args.model, subfolder="vae", torch_dtype=torch.float32)
@@ -52,7 +30,6 @@ def main():
     result = cached_search(
         pipe,
         args.prompt,
-        verifier=load_imagereward_verifier(),
         n=args.n,
         tau=args.tau,
         mode=args.mode,

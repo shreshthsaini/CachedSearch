@@ -20,8 +20,7 @@ import torch
 
 from videogen1.caching import CacheConfig, wrap_pipeline
 
-# A verifier maps (video_frames, prompt) to a scalar; higher is better.
-Verifier = Callable[[object, str], float]
+from .verifiers import Verifier, default_verifier, imagereward_verifier
 
 
 @dataclass
@@ -46,7 +45,7 @@ def _generate(pipe, prompt: str, seed: int, steps: int, gen_kwargs: dict):
 def cached_search(
     pipe,
     prompt: str,
-    verifier: Verifier,
+    verifier: Verifier | None = None,
     n: int = 8,
     tau: float = 0.10,
     steps: int = 50,
@@ -60,8 +59,9 @@ def cached_search(
         pipe: any diffusers video pipeline exposing `.transformer` (Wan, CogVideoX,
             HunyuanVideo, LTX-Video all work).
         prompt: the text prompt.
-        verifier: callable (frames, prompt) -> float, higher is better. Any scorer
-            works; we used ImageReward averaged over 8 uniformly spaced frames.
+        verifier: callable (frames, prompt) -> float, higher is better. Any
+            scorer works. Defaults to ImageReward averaged over 8 uniformly
+            spaced frames, the verifier behind the paper's headline numbers.
         n: search width (number of candidates). Recommit pays off for n >= 4.
         tau: caching threshold. 0.10 is calibrated for Wan2.1; run `calibrate_tau`
             for a new architecture (do not copy this constant across families).
@@ -78,6 +78,8 @@ def cached_search(
     """
     seeds = list(seeds if seeds is not None else range(n))
     gen_kwargs = dict(gen_kwargs or {})
+    if verifier is None:
+        verifier = default_verifier()
 
     # ---- explore: every candidate under caching -------------------------------
     cache = wrap_pipeline(pipe, CacheConfig(mode="adaptive", tau=tau, total_steps=steps))
@@ -105,7 +107,7 @@ def cached_search(
 
 
 def cached_search_batch(
-    pipe, prompts: Iterable[str], verifier: Verifier, **kwargs
+    pipe, prompts: Iterable[str], verifier: Verifier | None = None, **kwargs
 ) -> list[SearchResult]:
     """cached_search over many prompts; returns one SearchResult per prompt."""
     return [cached_search(pipe, p, verifier, **kwargs) for p in prompts]
@@ -114,7 +116,7 @@ def cached_search_batch(
 def calibrate_tau(
     pipe,
     prompts: Sequence[str],
-    verifier: Verifier,
+    verifier: Verifier | None = None,
     taus: Sequence[float] = (0.05, 0.10, 0.20),
     n: int = 8,
     steps: int = 50,
@@ -134,6 +136,8 @@ def calibrate_tau(
     prompts = list(prompts)
     gen_kwargs = dict(gen_kwargs or {})
     seeds = list(range(n))
+    if verifier is None:
+        verifier = default_verifier()
 
     # full-compute references, shared across all tau values
     wrap_pipeline(pipe, CacheConfig(mode="off", total_steps=steps))

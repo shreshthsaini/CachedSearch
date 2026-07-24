@@ -12,7 +12,6 @@ import torch
 from diffusers import DiffusionPipeline
 
 from cachedsearch import calibrate_tau
-from run_wan import load_imagereward_verifier
 
 
 def main():
@@ -30,7 +29,6 @@ def main():
     report = calibrate_tau(
         pipe,
         prompts,
-        verifier=load_imagereward_verifier(),
         taus=[float(t) for t in args.taus.split(",")],
         target_capture=args.target_capture,
     )
