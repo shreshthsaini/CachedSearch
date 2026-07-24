@@ -10,10 +10,12 @@ WIDTH = 1200
 HEIGHT = 260
 DPI = 100
 BLUE = "#1f77b4"
-INK = "#111827"
+# Two variants: INK for light backgrounds, LIGHT for dark backgrounds
+# (GitHub picks via <picture media="(prefers-color-scheme: ...)"> in README).
+VARIANTS = {"logo.png": "#111827", "logo-dark.png": "#e6edf3"}
 
 
-def main() -> None:
+def render(out_name: str, ink: str) -> None:
     fig = plt.figure(figsize=(WIDTH / DPI, HEIGHT / DPI), dpi=DPI)
     fig.patch.set_alpha(0)
     ax = fig.add_axes((0, 0, 1, 1))
@@ -35,7 +37,7 @@ def main() -> None:
         0,
         0.5,
         "Search",
-        color=INK,
+        color=ink,
         fontsize=92,
         fontfamily="DejaVu Sans",
         fontweight="bold",
@@ -74,15 +76,14 @@ def main() -> None:
     ax.add_patch(bolt)
 
     output = Path(__file__).with_name("logo.png")
-    fig.savefig(
-        output,
-        dpi=DPI,
-        transparent=True,
-        facecolor="none",
-        edgecolor="none",
-    )
+    fig.savefig(Path(__file__).parent / out_name, transparent=True)
     plt.close(fig)
     print(output)
+
+
+def main() -> None:
+    for name, ink in VARIANTS.items():
+        render(name, ink)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="assets/logo.png" alt="CachedSearch" width="720">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.png">
+    <img src="assets/logo.png" alt="CachedSearch" width="720">
+  </picture>
 </p>
 
 <p align="center">
