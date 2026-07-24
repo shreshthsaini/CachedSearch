@@ -68,6 +68,38 @@ instead of recommitting dampens motion. This is why commit is the default.
 
 <p align="center"><img src="assets/gif_motion.gif" alt="commit vs keep at an aggressive threshold" width="720"></p>
 
+## Tested models
+
+These are the backbones we measured. The recommended threshold is the most
+aggressive setting that still keeps at least 85% of search's gain, taken from
+the calibration sweep; capture and speedup are reported at that setting.
+
+| Model | Params | Family | Recommended `tau` | Gain capture | Exploration speedup |
+|---|---:|---|---:|---:|---:|
+| Wan2.1-T2V-1.3B | 1.3B | Wan | 0.20 | 88.3% | 2.41x |
+| Wan2.1-T2V-14B | 14B | Wan | 0.10 | 87.5% | 2.05x |
+| Wan2.2-TI2V-5B | 5B | Wan | 0.10 | 86.0% | 2.05x |
+| CogVideoX-5B | 5B | CogVideoX | 0.05 | 85.9% | 1.78x |
+| HunyuanVideo | 13B | HunyuanVideo | 0.05 | 85.1% | 1.77x |
+| LTX-Video | 2B | LTX | 0.02 | 79.6% | 1.71x |
+
+**CachedSearch is not limited to these models.** It is a training-free wrapper
+around generation, so it applies to any diffusion or flow-matching video model
+whose sampler is deterministic in the seed, which covers essentially every
+current open text-to-video pipeline. These six are simply the ones where we
+measured the numbers ourselves, across four architecture families and a
+1.3B to 14B size range.
+
+For a model that is not listed, run the calibration script once
+([`examples/calibrate_new_model.py`](examples/calibrate_new_model.py), about
+two GPU-hours) and use the threshold it recommends. Fidelity tracks
+architecture family rather than parameter count, so a threshold calibrated on
+one member of a family transfers to its other sizes: Wan2.1-14B behaves like
+Wan2.1-1.3B, while off-family ports need their own value. LTX-Video is the
+honest boundary case in our set. No threshold we measured reached 85% capture,
+which is exactly the situation the calibration is meant to reveal before you
+deploy rather than after.
+
 ## Use it on your model
 
 CachedSearch is a wrapper around generation, not a new model. If you already
