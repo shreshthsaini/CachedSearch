@@ -5,8 +5,10 @@
   </picture>
 </p>
 
+<h1 align="center">CachedSearch: Training-Free Cached Exploration for Test-Time Search in Video Diffusion</h1>
+
 <p align="center">
-  Training-free cached exploration for test-time search in video diffusion
+  Test-time search at 63% of the cost: explore every candidate under caching, commit only the winner at full compute.
 </p>
 
 <p align="center">
