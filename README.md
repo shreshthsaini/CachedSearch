@@ -51,9 +51,11 @@ return full_generate(prompt, winner)
 
 ## See it
 
-**What search buys.** Same prompt, two seeds: an unlucky candidate and the one
-CachedSearch selected. Both are delivered at full compute; search only chooses
-between them.
+**What search buys.** "Robot dancing in Times Square": an unlucky seed on the
+left, the seed CachedSearch selected on the right. The unlucky sample misses
+the scene entirely. Both are delivered at full compute, so search only chooses
+between them. This is a selected example; the aggregate effect is in the
+capture and regret numbers.
 
 <p align="center"><img src="assets/gif_search.gif" alt="unlucky sample vs CachedSearch pick" width="720"></p>
 
