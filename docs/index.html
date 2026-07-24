@@ -4,120 +4,143 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CachedSearch: Training-Free Cached Exploration for Test-Time Search in Video Diffusion</title>
-<meta name="description" content="Test-time search for video diffusion at 63% of the cost: explore every candidate under training-free caching, then re-generate only the winner at full compute.">
+<meta name="description" content="Search cheap, commit full: 94.7% of best-of-8's reward gain at 63% of its cost, for any video diffusion model.">
 <meta property="og:title" content="CachedSearch: Training-Free Cached Exploration for Test-Time Search in Video Diffusion">
-<meta property="og:description" content="Rankings survive caching, so search can explore cheap and commit full: 94.7% of best-of-8's gain at 63% of its cost.">
+<meta property="og:description" content="Candidate rankings survive aggressive caching, so search can explore cheap and commit full.">
 <meta property="og:image" content="https://shreshthsaini.github.io/CachedSearch/assets/fig1_overview.png">
 <meta name="twitter:card" content="summary_large_image">
 <style>
   :root {
-    --ink: #16181d;
-    --body: #2f333a;
-    --muted: #6b7280;
-    --line: #e5e7eb;
-    --accent: #1d4ed8;
-    --accent-soft: #eff4ff;
-    --bg: #ffffff;
-    --bg-soft: #f8fafc;
-    --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
-    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    --mono: 'SF Mono', Monaco, Inconsolata, 'Fira Code', monospace;
+    --ink: #0b1020;
+    --body: #d7dbe7;
+    --muted: #8b93a7;
+    --line: rgba(255,255,255,.10);
+    --cyan: #35d0ba;
+    --blue: #5b9dff;
+    --amber: #f5b544;
+    --paper: #ffffff;
+    --paper-ink: #1a1d24;
+    --paper-body: #3d434e;
+    --paper-line: #e7e9ee;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --mono: 'SF Mono', ui-monospace, Menlo, Monaco, 'Fira Code', monospace;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
-  body {
-    font-family: var(--serif); font-size: 17.5px; line-height: 1.65;
-    color: var(--body); background: var(--bg); -webkit-font-smoothing: antialiased;
-  }
-  .wrap { max-width: 880px; margin: 0 auto; padding: 0 24px; }
+  body { font-family: var(--sans); background: var(--paper); color: var(--paper-body); font-size: 16.5px; line-height: 1.62; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  .narrow { max-width: 760px; }
 
-  /* ---------- hero ---------- */
-  header.hero { padding: 64px 0 34px; text-align: center; border-bottom: 1px solid var(--line); }
+  /* ---------------- hero: dark, technical ---------------- */
+  .hero {
+    background:
+      radial-gradient(900px 420px at 12% -10%, rgba(91,157,255,.20), transparent 60%),
+      radial-gradient(800px 400px at 88% 0%, rgba(53,208,186,.16), transparent 62%),
+      var(--ink);
+    color: var(--body); padding: 74px 0 62px; position: relative; overflow: hidden;
+  }
+  .hero::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 46px 46px;
+    -webkit-mask-image: radial-gradient(70% 60% at 50% 30%, #000 30%, transparent 100%);
+    mask-image: radial-gradient(70% 60% at 50% 30%, #000 30%, transparent 100%);
+    opacity: .5;
+  }
+  .hero .wrap { position: relative; z-index: 1; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--cyan);
+    border: 1px solid rgba(53,208,186,.32); border-radius: 999px; padding: 5px 13px;
+  }
   h1 {
-    font-family: var(--sans); font-size: 34px; line-height: 1.25; font-weight: 700;
-    color: var(--ink); letter-spacing: -0.015em; text-wrap: balance;
+    font-size: clamp(30px, 4.4vw, 46px); line-height: 1.14; font-weight: 800; letter-spacing: -.022em;
+    color: #fff; margin-top: 20px; max-width: 20ch;
   }
-  .venue { font-family: var(--sans); font-size: 14px; color: var(--muted); margin-top: 12px; }
-  .authors {
-    font-family: var(--sans); font-size: 17px; margin-top: 22px; line-height: 2;
-  }
-  .authors a { color: var(--accent); text-decoration: none; font-weight: 600; }
-  .authors a:hover { text-decoration: underline; text-underline-offset: 3px; }
-  .authors sup { font-size: 11px; color: var(--muted); font-weight: 500; }
-  .affil {
-    font-family: var(--sans); font-size: 14.5px; color: var(--muted);
-    margin-top: 8px; line-height: 1.8;
-  }
-  .affil sup { font-size: 11px; }
-  .note { font-family: var(--sans); font-size: 13px; color: var(--muted); margin-top: 10px; }
+  h1 .grad { background: linear-gradient(92deg, var(--cyan), var(--blue)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .tagline { font-size: 19px; color: #b9c1d4; margin-top: 18px; max-width: 58ch; }
 
-  .links { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 26px; }
+  .authors { margin-top: 30px; font-size: 16px; color: #c9d1e2; line-height: 2.05; }
+  .authors a { color: #fff; text-decoration: none; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,.28); }
+  .authors a:hover { border-bottom-color: var(--cyan); color: var(--cyan); }
+  .authors sup { color: var(--muted); font-size: 11px; }
+  .affil { font-size: 14px; color: var(--muted); margin-top: 10px; line-height: 1.85; }
+  .affil sup { font-size: 10.5px; }
+  .fnote { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+
+  .cta { display: flex; flex-wrap: wrap; gap: 11px; margin-top: 30px; }
   .btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    font-family: var(--sans); font-size: 15px; font-weight: 600;
-    color: #fff; background: var(--ink); border-radius: 999px;
-    padding: 10px 20px; text-decoration: none; transition: transform .12s ease, background .2s ease;
+    display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 650;
+    border-radius: 10px; padding: 11px 19px; text-decoration: none; transition: .16s ease;
+    background: rgba(255,255,255,.08); color: #fff; border: 1px solid rgba(255,255,255,.16);
   }
-  .btn:hover { background: #000; transform: translateY(-1px); }
-  .btn.ghost { background: #fff; color: var(--ink); border: 1px solid #d5d9e0; }
-  .btn.ghost:hover { background: var(--bg-soft); }
-  .btn.disabled { background: #eef0f3; color: #9aa1ac; pointer-events: none; }
+  .btn:hover { background: rgba(255,255,255,.15); transform: translateY(-1px); }
+  .btn.primary { background: linear-gradient(92deg, var(--cyan), var(--blue)); color: #071018; border: 0; }
+  .btn.dim { opacity: .45; pointer-events: none; }
   .btn svg { width: 16px; height: 16px; fill: currentColor; }
 
-  /* ---------- sections ---------- */
-  section { padding: 44px 0; border-bottom: 1px solid var(--line); }
-  section:last-of-type { border-bottom: 0; }
-  h2 {
-    font-family: var(--sans); font-size: 21px; font-weight: 700; color: var(--ink);
-    letter-spacing: -0.01em; margin-bottom: 16px;
-  }
-  h3 { font-family: var(--sans); font-size: 16px; font-weight: 700; color: var(--ink); margin: 22px 0 8px; }
-  p { margin-bottom: 16px; }
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 1px; margin-top: 46px; background: var(--line); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .metric { background: rgba(11,16,32,.72); padding: 20px 18px; }
+  .metric .v { font-size: 30px; font-weight: 800; letter-spacing: -.02em; color: #fff; }
+  .metric .v em { font-style: normal; color: var(--cyan); }
+  .metric .k { font-size: 13px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+
+  /* ---------------- light body ---------------- */
+  section { padding: 66px 0; border-bottom: 1px solid var(--paper-line); }
+  .kicker { font-size: 12.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--blue); }
+  h2 { font-size: 27px; font-weight: 780; letter-spacing: -.018em; color: var(--paper-ink); margin: 8px 0 14px; }
+  h3 { font-size: 17px; font-weight: 700; color: var(--paper-ink); margin: 26px 0 8px; }
+  p { margin-bottom: 15px; }
   p:last-child { margin-bottom: 0; }
-  a { color: var(--accent); }
-  figure { margin: 22px 0; }
-  figure img { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 6px; }
-  figcaption {
-    font-family: var(--sans); font-size: 13.5px; color: var(--muted);
-    line-height: 1.55; margin-top: 10px;
-  }
-  .lede { font-size: 19px; color: var(--ink); }
+  a { color: #2563eb; }
 
-  .highlights { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin: 4px 0 22px; }
-  .card { background: var(--bg-soft); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
-  .card .num { font-family: var(--sans); font-size: 26px; font-weight: 700; color: var(--accent); letter-spacing: -0.02em; }
-  .card .lbl { font-family: var(--sans); font-size: 13.5px; color: var(--muted); line-height: 1.45; margin-top: 4px; }
+  .split { display: grid; grid-template-columns: 1.05fr .95fr; gap: 38px; align-items: center; }
+  @media (max-width: 860px) { .split { grid-template-columns: 1fr; gap: 22px; } }
 
-  .tablewrap { overflow-x: auto; margin: 18px 0; }
-  table { border-collapse: collapse; width: 100%; font-family: var(--sans); font-size: 14.5px; }
-  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
-  th { color: var(--muted); font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
-  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-  tr.ours td { background: var(--accent-soft); font-weight: 600; }
+  figure img { width: 100%; height: auto; display: block; border-radius: 10px; border: 1px solid var(--paper-line); }
+  figcaption { font-size: 13.5px; color: #6b7280; line-height: 1.55; margin-top: 9px; }
 
-  pre {
-    background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 16px 18px;
-    overflow-x: auto; font-family: var(--mono); font-size: 13px; line-height: 1.6;
-    margin: 14px 0;
-  }
-  code.inline { font-family: var(--mono); font-size: .87em; background: var(--bg-soft); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  .steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin: 26px 0 6px; }
+  @media (max-width: 760px) { .steps { grid-template-columns: 1fr; } }
+  .step { border: 1px solid var(--paper-line); border-radius: 12px; padding: 18px; background: #fbfcfe; }
+  .step .n { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; font-size: 13px; font-weight: 800; color: #fff; background: var(--paper-ink); }
+  .step h4 { font-size: 15.5px; font-weight: 700; color: var(--paper-ink); margin: 11px 0 5px; }
+  .step p { font-size: 14.5px; color: #5b626f; margin: 0; }
 
-  footer { padding: 34px 0 54px; font-family: var(--sans); font-size: 13.5px; color: var(--muted); text-align: center; }
-  footer a { color: var(--muted); }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px,1fr)); gap: 18px; margin-top: 8px; }
+  .gcard { border: 1px solid var(--paper-line); border-radius: 12px; overflow: hidden; background: #fff; }
+  .gcard img { width: 100%; display: block; }
+  .gcard .cap { padding: 10px 13px 12px; font-size: 13px; color: #6b7280; display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+  .gcard .cap b { color: var(--paper-ink); font-weight: 650; font-size: 13.5px; }
+  .gain { color: #0f9d76; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-  @media (max-width: 640px) {
-    h1 { font-size: 26px; }
-    body { font-size: 16.5px; }
-    .authors { font-size: 15.5px; }
-  }
+  .tablewrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+  th, td { padding: 10px 13px; border-bottom: 1px solid var(--paper-line); text-align: left; }
+  th { font-size: 12.5px; text-transform: uppercase; letter-spacing: .05em; color: #7a8290; font-weight: 700; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.ours td { background: #eef5ff; font-weight: 650; color: var(--paper-ink); }
+
+  pre { background: #0b1020; color: #dbe3f4; border-radius: 12px; padding: 18px 20px; overflow-x: auto; font-family: var(--mono); font-size: 13px; line-height: 1.62; }
+  pre .c { color: #7c88a3; }
+  pre .k { color: var(--cyan); }
+  code.i { font-family: var(--mono); font-size: .88em; background: #f1f3f7; border: 1px solid var(--paper-line); border-radius: 5px; padding: 1px 5px; }
+
+  .callout { border-left: 3px solid var(--amber); background: #fffaf0; border-radius: 0 10px 10px 0; padding: 16px 18px; font-size: 15px; }
+
+  footer { background: var(--ink); color: var(--muted); padding: 34px 0; font-size: 13.5px; }
+  footer a { color: #c9d1e2; text-decoration: none; }
+  footer a:hover { color: var(--cyan); }
+  .foot { display: flex; flex-wrap: wrap; gap: 14px; justify-content: space-between; }
 </style>
 </head>
 <body>
 
 <header class="hero">
   <div class="wrap">
-    <h1>CachedSearch: Training-Free Cached Exploration<br>for Test-Time Search in Video Diffusion</h1>
-    <p class="venue">Technical report, 2026</p>
+    <span class="eyebrow">Training-free &middot; Plug-in &middot; Any verifier</span>
+    <h1>Test-time search in video diffusion, at <span class="grad">63% of the cost</span></h1>
+    <p class="tagline">Search only needs candidate <em>rankings</em> to survive acceleration. They do. So explore every candidate under aggressive caching, then re-generate only the winner at full compute.</p>
 
     <p class="authors">
       <a href="https://shreshthsaini.github.io/">Shreshth Saini</a><sup>1,2,&dagger;</sup>&nbsp;&nbsp;
@@ -126,129 +149,163 @@
       <a href="https://www.linkedin.com/in/balu-adsumilli-2537031/">Balu Adsumilli</a><sup>2</sup>&nbsp;&nbsp;
       <a href="https://live.ece.utexas.edu/">Alan C. Bovik</a><sup>1,3</sup>
     </p>
-    <p class="affil">
-      <sup>1</sup>The University of Texas at Austin &nbsp;&nbsp;
-      <sup>2</sup>Google, Inc. &nbsp;&nbsp;
-      <sup>3</sup>University of Colorado Boulder
-    </p>
-    <p class="note"><sup>&dagger;</sup>Work done while at The University of Texas at Austin.</p>
+    <p class="affil"><sup>1</sup>The University of Texas at Austin &nbsp;&nbsp; <sup>2</sup>Google, Inc. &nbsp;&nbsp; <sup>3</sup>University of Colorado Boulder</p>
+    <p class="fnote"><sup>&dagger;</sup>Work done while at The University of Texas at Austin.</p>
 
-    <div class="links">
-      <a class="btn disabled">Paper (arXiv, coming soon)</a>
+    <div class="cta">
+      <a class="btn primary dim">Paper (arXiv soon)</a>
       <a class="btn" href="https://github.com/shreshthsaini/CachedSearch">
         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
         Code
       </a>
-      <a class="btn ghost" href="https://shreshthsaini.github.io/blogs.html">Blog</a>
+      <a class="btn" href="#gallery">Video gallery</a>
+      <a class="btn" href="#quickstart">Quickstart</a>
+    </div>
+
+    <div class="metrics">
+      <div class="metric"><div class="v"><em>94.7%</em></div><div class="k">of best-of-8's reward gain retained</div></div>
+      <div class="metric"><div class="v">63%</div><div class="k">of full best-of-8's wall-clock</div></div>
+      <div class="metric"><div class="v">+38%</div><div class="k">more gain at a matched budget</div></div>
+      <div class="metric"><div class="v">6 / 4</div><div class="k">models / architecture families</div></div>
     </div>
   </div>
 </header>
 
-<div class="wrap">
-
-  <section>
-    <figure>
-      <img src="assets/fig1_overview.png" alt="Caching preserves candidate ranking, delivers more gain per second, and transfers across six models">
-      <figcaption>Caching preserves the ranking search depends on (left), which buys more reward per second of compute (middle), and the effect transfers across six models in four architecture families (right).</figcaption>
-    </figure>
-
-    <p class="lede">Test-time search makes small video models punch far above their weight, but it pays full price for every candidate it throws away. We show that the <em>candidate rankings</em> search depends on survive aggressive training-free caching. That means you can explore every candidate cheaply and re-generate only the winner at full compute.</p>
-
-    <div class="highlights">
-      <div class="card"><div class="num">94.7%</div><div class="lbl">of best-of-8's reward gain retained</div></div>
-      <div class="card"><div class="num">63%</div><div class="lbl">of full best-of-8's wall-clock cost</div></div>
-      <div class="card"><div class="num">+38%</div><div class="lbl">more gain at a matched budget</div></div>
-      <div class="card"><div class="num">6 models</div><div class="lbl">across four architecture families</div></div>
-    </div>
-  </section>
+<main>
 
   <section id="idea">
-    <h2>The idea</h2>
-    <p>A diffusion rollout inside search does two different jobs. <strong>Exploration</strong> produces a candidate for the verifier to rank; <strong>delivery</strong> produces the video the user actually sees. Only delivery needs to be faithful. Exploration needs the verifier's <em>ordering</em> of candidates to survive, which is a far weaker requirement, and it is exactly the requirement nobody had measured.</p>
-    <figure>
-      <img src="assets/fig2_method.png" alt="Explore all candidates under caching, score the drafts, re-generate the winning seed at full compute">
-      <figcaption>Explore cheap, commit full. All N candidates run under aggressive caching, a verifier scores the cheap drafts, and only the winning seed is re-generated at full compute. Because the sampler is deterministic in the seed, the delivered video is a genuine full-compute sample.</figcaption>
-    </figure>
-    <p>Caching therefore changes <em>which</em> candidate you select, never the quality of what ships. That reduces the safety of the whole scheme to one measurable quantity: how faithfully cached scores rank candidates.</p>
+    <div class="wrap">
+      <span class="kicker">The idea</span>
+      <h2>One rollout, two different jobs</h2>
+      <div class="split">
+        <div>
+          <p>Inside test-time search, a diffusion rollout does two things at once. <strong>Exploration</strong> produces a candidate for the verifier to rank. <strong>Delivery</strong> produces the video a person actually watches.</p>
+          <p>Only delivery has to be faithful. Exploration merely has to preserve the <em>order</em> of candidates, a far weaker requirement, and the one nobody had measured.</p>
+          <p>So we cache exploration aggressively and re-generate only the winning seed at full compute. Because the sampler is deterministic in its seed, what ships is a genuine full-compute sample. Caching decides <em>which</em> candidate you get, never how good the delivered one is.</p>
+        </div>
+        <figure>
+          <img src="assets/fig2_method.png" alt="Explore all candidates under caching, score the drafts, re-generate the winner at full compute">
+        </figure>
+      </div>
+
+      <div class="steps">
+        <div class="step"><div class="n">1</div><h4>Explore cheap</h4><p>Generate all N candidates with a training-free cache enabled, at roughly half the cost each.</p></div>
+        <div class="step"><div class="n">2</div><h4>Rank the drafts</h4><p>Score the cheap drafts with whatever verifier your workflow already trusts.</p></div>
+        <div class="step"><div class="n">3</div><h4>Commit full</h4><p>Re-generate only the winning seed at full compute and deliver that.</p></div>
+      </div>
+    </div>
   </section>
 
-  <section id="results">
-    <h2>What we measured</h2>
-    <p>Seed-matched twins: every candidate generated twice, once at full compute and once under caching, scored by the same verifier. Configured on a 50-prompt pilot grid, then re-measured on the full VBench and VBench-2.0 suites.</p>
+  <section id="gallery">
+    <div class="wrap">
+      <span class="kicker">Video gallery</span>
+      <h2>What search actually buys</h2>
+      <p class="narrow" style="margin-bottom:24px">Each pair is one prompt: an unlucky candidate on the left, the candidate CachedSearch selected on the right. Both are delivered at full compute, so search is only choosing between them. The number is the reward gap between the two in verifier units. These are selected showcases; aggregate behavior is the capture and regret analysis.</p>
 
-    <h3>Rankings survive</h3>
-    <p>Median per-prompt Spearman correlation is 0.905 with 72% top-1 agreement on VBench, and VBench-2.0 replicates it on a harder prompt distribution.</p>
-
-    <figure>
-      <img src="assets/gif_search.gif" alt="An unlucky sample beside the CachedSearch pick">
-      <figcaption>What search buys. "Robot dancing in Times Square": an unlucky seed on the left misses the scene entirely; the seed CachedSearch selected renders it. Both are delivered at full compute, so search only chooses between them. Selected example; aggregate behavior is in the capture and regret numbers.</figcaption>
-    </figure>
-
-    <h3>Failures are self-limiting</h3>
-    <p>Ranking corrupts preferentially on prompts whose candidates were nearly tied to begin with, which is exactly where picking the wrong one costs least. Median regret is zero.</p>
-
-    <figure>
-      <img src="assets/gif_twins.gif" alt="The same seed at full compute and under caching">
-      <figcaption>Why the ranking survives: the same seed at full compute (left) and under caching (right). The draft is roughly twice as cheap and is what the verifier ranks.</figcaption>
-    </figure>
-
-    <h3>The budget is not enough, the trajectory is</h3>
-    <p>The obvious alternative is to spend fewer denoising steps per candidate. At a matched two-fold saving, truncation keeps 72.6% of search's gain against caching's 90.1%, with roughly six times the regret. A truncated rollout is an honest sample of a <em>different</em>, shorter-schedule distribution, so its scores rank its own outputs rather than the videos that commit will deliver. Caching perturbs the same seed-matched trajectory, which is the property search actually needs.</p>
-
-    <figure>
-      <img src="assets/f16_hero.png" alt="Delivered reward versus compute budget">
-      <figcaption>Delivered reward against end-to-end budget. Above the break-even, cached exploration delivers more reward than full-compute best-of-N at the same cost; step truncation at the same per-candidate saving delivers less.</figcaption>
-    </figure>
-
-    <h3>Any published cache works as the engine</h3>
-    <p>Every caching family we tested drops in unchanged, and all of them land on a single capture-versus-speedup frontier: fidelity is set by how much compute you reuse, not by which mechanism reuses it.</p>
-
-    <div class="tablewrap">
-      <table>
-        <tr><th>Exploration engine</th><th class="num">Gain capture</th><th class="num">End-to-end cost</th></tr>
-        <tr><td>No caching (full best-of-8)</td><td class="num">100.0%</td><td class="num">621 s</td></tr>
-        <tr><td>PAB</td><td class="num">99.5%</td><td class="num">493 s</td></tr>
-        <tr><td>FasterCache CFG-Cache</td><td class="num">99.6%</td><td class="num">465 s</td></tr>
-        <tr><td>TeaCache</td><td class="num">93.2%</td><td class="num">365 s</td></tr>
-        <tr class="ours"><td>EasyCache (our default)</td><td class="num">90.1%</td><td class="num">346 s</td></tr>
-      </table>
+      <div class="gallery">
+        <div class="gcard"><img src="assets/gallery/gal_a_person_is_playing_harp.gif" alt="A person is playing harp"><div class="cap"><b>A person is playing harp</b><span class="gain">+3.91</span></div></div>
+        <div class="gcard"><img src="assets/gallery/gal_a_boat_sailing_leisurely_alo.gif" alt="A boat sailing along the Seine with the Eiffel Tower"><div class="cap"><b>A boat sailing along the Seine</b><span class="gain">+3.28</span></div></div>
+        <div class="gcard"><img src="assets/gallery/gal_a_red_clock.gif" alt="a red clock"><div class="cap"><b>A red clock</b><span class="gain">+3.25</span></div></div>
+        <div class="gcard"><img src="assets/gallery/gal_a_pink_clock.gif" alt="a pink clock"><div class="cap"><b>A pink clock</b><span class="gain">+3.03</span></div></div>
+        <div class="gcard"><img src="assets/gallery/gal_a_book_and_a_clock.gif" alt="a book and a clock"><div class="cap"><b>A book and a clock</b><span class="gain">+3.03</span></div></div>
+        <div class="gcard"><img src="assets/gallery/gal_a_bench_on_the_left_of_a_tru.gif" alt="a bench on the left of a truck"><div class="cap"><b>A bench left of a truck</b><span class="gain">+2.97</span></div></div>
+        <div class="gcard"><img src="assets/gif_search.gif" alt="Robot dancing in Times Square"><div class="cap"><b>Robot dancing in Times Square</b><span class="gain">+2.96</span></div></div>
+      </div>
     </div>
-
-    <h3>The honest edge</h3>
-    <p>Keeping the cached draft instead of re-committing is cheaper still, but it dampens motion, and learned judges mildly <em>prefer</em> the dampened result. This is why commit is the default and why our keep-mode claims lean on optical flow and LPIPS rather than judge scores.</p>
-
-    <figure>
-      <img src="assets/gif_motion.gif" alt="Commit compared with keep at an aggressive threshold">
-      <figcaption>At an aggressive threshold, keeping the cached draft (right) dampens motion relative to the committed delivery (left).</figcaption>
-    </figure>
   </section>
 
-  <section id="use">
-    <h2>Use it on your model</h2>
-    <p>CachedSearch is a wrapper around generation, not a new model, so adopting it is a change to your search loop rather than to your checkpoint.</p>
-<pre>from cachedsearch import cached_search
+  <section id="evidence">
+    <div class="wrap">
+      <span class="kicker">Evidence</span>
+      <h2>Three findings, measured on VBench and VBench-2.0</h2>
 
-result = cached_search(pipe, prompt, verifier=my_scorer, n=8, tau=0.10)
-result.video   # a genuine full-compute sample, at about 63% of best-of-8 cost</pre>
-    <p><code class="inline">pipe</code> is any diffusers video pipeline and <code class="inline">my_scorer</code> is whatever verifier you already trust. One number is model-specific: the caching threshold. Fidelity tracks architecture family rather than parameter count, so calibrate once per family with the script in the repository (about two GPU-hours) and reuse it across sizes.</p>
+      <h3>1. Rankings survive caching</h3>
+      <div class="split">
+        <p>Generate every candidate twice, once at full compute and once cached, from identical seeds. Median per-prompt Spearman correlation between the two orderings is <strong>0.905</strong>, with <strong>72%</strong> top-1 agreement, replicated on the harder VBench-2.0 distribution.</p>
+        <figure>
+          <img src="assets/gif_twins.gif" alt="The same seed at full compute and under caching">
+          <figcaption>Same seed, full compute (left) against the cached draft (right) that the verifier ranks.</figcaption>
+        </figure>
+      </div>
 
-    <h3>Tested models</h3>
-    <div class="tablewrap">
-      <table>
-        <tr><th>Model</th><th class="num">Params</th><th>Family</th><th class="num">Recommended &tau;</th><th class="num">Capture</th><th class="num">Speedup</th></tr>
-        <tr><td>Wan2.1-T2V-1.3B</td><td class="num">1.3B</td><td>Wan</td><td class="num">0.20</td><td class="num">88.3%</td><td class="num">2.41&times;</td></tr>
-        <tr><td>Wan2.1-T2V-14B</td><td class="num">14B</td><td>Wan</td><td class="num">0.10</td><td class="num">87.5%</td><td class="num">2.05&times;</td></tr>
-        <tr><td>Wan2.2-TI2V-5B</td><td class="num">5B</td><td>Wan</td><td class="num">0.10</td><td class="num">86.0%</td><td class="num">2.05&times;</td></tr>
-        <tr><td>CogVideoX-5B</td><td class="num">5B</td><td>CogVideoX</td><td class="num">0.05</td><td class="num">85.9%</td><td class="num">1.78&times;</td></tr>
-        <tr><td>HunyuanVideo</td><td class="num">13B</td><td>HunyuanVideo</td><td class="num">0.05</td><td class="num">85.1%</td><td class="num">1.77&times;</td></tr>
-        <tr><td>LTX-Video</td><td class="num">2B</td><td>LTX</td><td class="num">0.02</td><td class="num">79.6%</td><td class="num">1.71&times;</td></tr>
-      </table>
+      <h3>2. When ranking breaks, it breaks cheaply</h3>
+      <p class="narrow">Corruption concentrates on prompts whose candidates were nearly tied to begin with, exactly where choosing wrong costs least. Median regret is zero: most prompts lose nothing at all.</p>
+
+      <h3>3. The trajectory matters, not the budget</h3>
+      <div class="split">
+        <p>The obvious alternative is fewer denoising steps per candidate. At a matched two-fold saving, truncation keeps <strong>72.6%</strong> of search's gain against caching's <strong>90.1%</strong>, with about six times the regret. A truncated rollout honestly samples a <em>different</em>, shorter-schedule distribution, so its scores rank its own outputs rather than the full-compute videos that commit will deliver.</p>
+        <figure>
+          <img src="assets/f16_hero.png" alt="Delivered reward versus compute budget">
+          <figcaption>Above break-even, cached exploration delivers more reward than full search at equal budget; truncation delivers less.</figcaption>
+        </figure>
+      </div>
+
+      <h3>Any published cache works as the engine</h3>
+      <p class="narrow">Every caching family we tested drops in unchanged and lands on one capture-versus-speedup frontier. Fidelity is set by how much compute you reuse, not by which mechanism reuses it.</p>
+      <div class="tablewrap">
+        <table>
+          <tr><th>Exploration engine</th><th class="n">Gain capture</th><th class="n">End-to-end cost</th></tr>
+          <tr><td>No caching (full best-of-8)</td><td class="n">100.0%</td><td class="n">621 s</td></tr>
+          <tr><td>PAB</td><td class="n">99.5%</td><td class="n">493 s</td></tr>
+          <tr><td>FasterCache CFG-Cache</td><td class="n">99.6%</td><td class="n">465 s</td></tr>
+          <tr><td>TeaCache</td><td class="n">93.2%</td><td class="n">365 s</td></tr>
+          <tr class="ours"><td>EasyCache (our default)</td><td class="n">90.1%</td><td class="n">346 s</td></tr>
+        </table>
+      </div>
+
+      <h3>The honest edge</h3>
+      <div class="split">
+        <div class="callout">Keeping the cached draft instead of re-committing is cheaper still, but it dampens motion, and learned judges mildly <em>prefer</em> the dampened result. That is why commit is the default and why our keep-mode claims rest on optical flow and LPIPS rather than judge scores.</div>
+        <figure>
+          <img src="assets/gif_motion.gif" alt="Commit against keep at an aggressive threshold">
+          <figcaption>Commit (left) against keep (right) at an aggressive threshold.</figcaption>
+        </figure>
+      </div>
     </div>
-    <p>The method is not limited to this list. It applies to any diffusion or flow-matching video model whose sampler is deterministic in the seed, which covers essentially every current open text-to-video pipeline. These six are simply where we measured the numbers ourselves. LTX-Video is the honest boundary case: no threshold we measured reached 85% capture, which is exactly what calibration is meant to reveal before deployment rather than after.</p>
+  </section>
+
+  <section id="quickstart">
+    <div class="wrap">
+      <span class="kicker">Quickstart</span>
+      <h2>Three lines in your search loop</h2>
+      <div class="split">
+        <div>
+          <p>CachedSearch wraps generation rather than replacing your model, so adoption changes your search loop and nothing else.</p>
+          <p><code class="i">pipe</code> is any diffusers video pipeline; <code class="i">my_scorer</code> is any verifier you already trust. One number is model-specific, the caching threshold, and the repository ships a calibration script that measures it for a new architecture in about two GPU-hours.</p>
+          <p><a href="https://github.com/shreshthsaini/CachedSearch#use-it-on-your-model">Full adoption guide &rarr;</a></p>
+        </div>
+<pre><span class="c"># pip install -r requirements.txt</span>
+<span class="k">from</span> cachedsearch <span class="k">import</span> cached_search
+
+result = cached_search(
+    pipe, prompt,
+    verifier=my_scorer,
+    n=8, tau=0.10,
+)
+result.video   <span class="c"># full-compute sample</span>
+result.seed    <span class="c"># the winning seed</span></pre>
+      </div>
+
+      <h3>Calibrated operating points</h3>
+      <div class="tablewrap">
+        <table>
+          <tr><th>Model</th><th class="n">Params</th><th>Family</th><th class="n">&tau;</th><th class="n">Capture</th><th class="n">Speedup</th></tr>
+          <tr><td>Wan2.1-T2V-1.3B</td><td class="n">1.3B</td><td>Wan</td><td class="n">0.20</td><td class="n">88.3%</td><td class="n">2.41&times;</td></tr>
+          <tr><td>Wan2.1-T2V-14B</td><td class="n">14B</td><td>Wan</td><td class="n">0.10</td><td class="n">87.5%</td><td class="n">2.05&times;</td></tr>
+          <tr><td>Wan2.2-TI2V-5B</td><td class="n">5B</td><td>Wan</td><td class="n">0.10</td><td class="n">86.0%</td><td class="n">2.05&times;</td></tr>
+          <tr><td>CogVideoX-5B</td><td class="n">5B</td><td>CogVideoX</td><td class="n">0.05</td><td class="n">85.9%</td><td class="n">1.78&times;</td></tr>
+          <tr><td>HunyuanVideo</td><td class="n">13B</td><td>HunyuanVideo</td><td class="n">0.05</td><td class="n">85.1%</td><td class="n">1.77&times;</td></tr>
+          <tr><td>LTX-Video</td><td class="n">2B</td><td>LTX</td><td class="n">0.02</td><td class="n">79.6%</td><td class="n">1.71&times;</td></tr>
+        </table>
+      </div>
+      <p class="narrow" style="margin-top:14px">The method is not limited to these. It applies to any diffusion or flow-matching video model with a seed-deterministic sampler, which covers essentially every open text-to-video pipeline; these six are where we measured the numbers ourselves. LTX-Video is the honest boundary case, since no threshold we measured reached 85% capture, which is precisely what calibration is meant to reveal before deployment rather than after.</p>
+    </div>
   </section>
 
   <section id="cite">
-    <h2>Citation</h2>
+    <div class="wrap">
+      <span class="kicker">Citation</span>
+      <h2>Cite this work</h2>
 <pre>@article{saini2026cachedsearch,
   title   = {CachedSearch: Training-Free Cached Exploration for Test-Time
              Search in Video Diffusion},
@@ -257,30 +314,32 @@ result.video   # a genuine full-compute sample, at about 63% of best-of-8 cost</
   year    = {2026},
   note    = {arXiv id to be added at release}
 }</pre>
+      <h3>Acknowledgments</h3>
+      <p>This work stands on open releases from the video generation community. We thank the teams behind
+        <a href="https://github.com/Wan-Video/Wan2.1">Wan2.1</a>,
+        <a href="https://github.com/THUDM/CogVideo">CogVideoX</a>,
+        <a href="https://github.com/Tencent/HunyuanVideo">HunyuanVideo</a>,
+        <a href="https://github.com/Lightricks/LTX-Video">LTX-Video</a>,
+        <a href="https://github.com/ali-vilab/TeaCache">TeaCache</a>,
+        <a href="https://github.com/NUS-HPC-AI-Lab/VideoSys">PAB and VideoSys</a>,
+        <a href="https://github.com/Vchitect/FasterCache">FasterCache</a>,
+        <a href="https://github.com/H-EmbodVis/EasyCache">EasyCache</a>,
+        <a href="https://github.com/THUDM/ImageReward">ImageReward</a>,
+        <a href="https://github.com/TIGER-AI-Lab/VideoScore">VideoScore</a>, and
+        <a href="https://github.com/Vchitect/VBench">VBench</a>.</p>
+    </div>
   </section>
 
-  <section id="ack">
-    <h2>Acknowledgments</h2>
-    <p>This work builds directly on open releases from the video generation community. We thank the authors and teams behind
-      <a href="https://github.com/Wan-Video/Wan2.1">Wan2.1</a>,
-      <a href="https://github.com/THUDM/CogVideo">CogVideoX</a>,
-      <a href="https://github.com/Tencent/HunyuanVideo">HunyuanVideo</a>,
-      <a href="https://github.com/Lightricks/LTX-Video">LTX-Video</a>,
-      <a href="https://github.com/ali-vilab/TeaCache">TeaCache</a>,
-      <a href="https://github.com/NUS-HPC-AI-Lab/VideoSys">PAB and VideoSys</a>,
-      <a href="https://github.com/Vchitect/FasterCache">FasterCache</a>,
-      <a href="https://github.com/H-EmbodVis/EasyCache">EasyCache</a>,
-      <a href="https://github.com/THUDM/ImageReward">ImageReward</a>,
-      <a href="https://github.com/TIGER-AI-Lab/VideoScore">VideoScore</a>, and
-      <a href="https://github.com/Vchitect/VBench">VBench</a>.
-      Their public work made it possible to study cached exploration across a broad and reproducible ecosystem.</p>
-  </section>
-
-</div>
+</main>
 
 <footer>
-  <div class="wrap">
-    <p>&copy; 2026 the authors &middot; <a href="https://github.com/shreshthsaini/CachedSearch">Code</a> &middot; <a href="https://shreshthsaini.github.io/">Shreshth Saini</a></p>
+  <div class="wrap foot">
+    <span>&copy; 2026 the authors</span>
+    <span>
+      <a href="https://github.com/shreshthsaini/CachedSearch">Code</a> &nbsp;&middot;&nbsp;
+      <a href="https://shreshthsaini.github.io/blogs.html">Blog</a> &nbsp;&middot;&nbsp;
+      <a href="https://shreshthsaini.github.io/">Shreshth Saini</a>
+    </span>
   </div>
 </footer>
 
