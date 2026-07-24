@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CachedSearch: Training-Free Cached Exploration for Test-Time Search in Video Diffusion</title>
+<meta name="description" content="Test-time search for video diffusion at 63% of the cost: explore every candidate under training-free caching, then re-generate only the winner at full compute.">
+<meta property="og:title" content="CachedSearch: Training-Free Cached Exploration for Test-Time Search in Video Diffusion">
+<meta property="og:description" content="Rankings survive caching, so search can explore cheap and commit full: 94.7% of best-of-8's gain at 63% of its cost.">
+<meta property="og:image" content="https://shreshthsaini.github.io/CachedSearch/assets/fig1_overview.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  :root {
+    --ink: #16181d;
+    --body: #2f333a;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --accent: #1d4ed8;
+    --accent-soft: #eff4ff;
+    --bg: #ffffff;
+    --bg-soft: #f8fafc;
+    --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --mono: 'SF Mono', Monaco, Inconsolata, 'Fira Code', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--serif); font-size: 17.5px; line-height: 1.65;
+    color: var(--body); background: var(--bg); -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---------- hero ---------- */
+  header.hero { padding: 64px 0 34px; text-align: center; border-bottom: 1px solid var(--line); }
+  h1 {
+    font-family: var(--sans); font-size: 34px; line-height: 1.25; font-weight: 700;
+    color: var(--ink); letter-spacing: -0.015em; text-wrap: balance;
+  }
+  .venue { font-family: var(--sans); font-size: 14px; color: var(--muted); margin-top: 12px; }
+  .authors {
+    font-family: var(--sans); font-size: 17px; margin-top: 22px; line-height: 2;
+  }
+  .authors a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .authors a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .authors sup { font-size: 11px; color: var(--muted); font-weight: 500; }
+  .affil {
+    font-family: var(--sans); font-size: 14.5px; color: var(--muted);
+    margin-top: 8px; line-height: 1.8;
+  }
+  .affil sup { font-size: 11px; }
+  .note { font-family: var(--sans); font-size: 13px; color: var(--muted); margin-top: 10px; }
+
+  .links { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 26px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--sans); font-size: 15px; font-weight: 600;
+    color: #fff; background: var(--ink); border-radius: 999px;
+    padding: 10px 20px; text-decoration: none; transition: transform .12s ease, background .2s ease;
+  }
+  .btn:hover { background: #000; transform: translateY(-1px); }
+  .btn.ghost { background: #fff; color: var(--ink); border: 1px solid #d5d9e0; }
+  .btn.ghost:hover { background: var(--bg-soft); }
+  .btn.disabled { background: #eef0f3; color: #9aa1ac; pointer-events: none; }
+  .btn svg { width: 16px; height: 16px; fill: currentColor; }
+
+  /* ---------- sections ---------- */
+  section { padding: 44px 0; border-bottom: 1px solid var(--line); }
+  section:last-of-type { border-bottom: 0; }
+  h2 {
+    font-family: var(--sans); font-size: 21px; font-weight: 700; color: var(--ink);
+    letter-spacing: -0.01em; margin-bottom: 16px;
+  }
+  h3 { font-family: var(--sans); font-size: 16px; font-weight: 700; color: var(--ink); margin: 22px 0 8px; }
+  p { margin-bottom: 16px; }
+  p:last-child { margin-bottom: 0; }
+  a { color: var(--accent); }
+  figure { margin: 22px 0; }
+  figure img { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 6px; }
+  figcaption {
+    font-family: var(--sans); font-size: 13.5px; color: var(--muted);
+    line-height: 1.55; margin-top: 10px;
+  }
+  .lede { font-size: 19px; color: var(--ink); }
+
+  .highlights { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin: 4px 0 22px; }
+  .card { background: var(--bg-soft); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+  .card .num { font-family: var(--sans); font-size: 26px; font-weight: 700; color: var(--accent); letter-spacing: -0.02em; }
+  .card .lbl { font-family: var(--sans); font-size: 13.5px; color: var(--muted); line-height: 1.45; margin-top: 4px; }
+
+  .tablewrap { overflow-x: auto; margin: 18px 0; }
+  table { border-collapse: collapse; width: 100%; font-family: var(--sans); font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.ours td { background: var(--accent-soft); font-weight: 600; }
+
+  pre {
+    background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 16px 18px;
+    overflow-x: auto; font-family: var(--mono); font-size: 13px; line-height: 1.6;
+    margin: 14px 0;
+  }
+  code.inline { font-family: var(--mono); font-size: .87em; background: var(--bg-soft); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+
+  footer { padding: 34px 0 54px; font-family: var(--sans); font-size: 13.5px; color: var(--muted); text-align: center; }
+  footer a { color: var(--muted); }
+
+  @media (max-width: 640px) {
+    h1 { font-size: 26px; }
+    body { font-size: 16.5px; }
+    .authors { font-size: 15.5px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>CachedSearch: Training-Free Cached Exploration<br>for Test-Time Search in Video Diffusion</h1>
+    <p class="venue">Technical report, 2026</p>
+
+    <p class="authors">
+      <a href="https://shreshthsaini.github.io/">Shreshth Saini</a><sup>1,2,&dagger;</sup>&nbsp;&nbsp;
+      <a href="https://www.linkedin.com/in/neil-birkbeck-826433a/">Neil Birkbeck</a><sup>2</sup>&nbsp;&nbsp;
+      <a href="https://research.google/people/106001/">Yilin Wang</a><sup>2</sup>&nbsp;&nbsp;
+      <a href="https://www.linkedin.com/in/balu-adsumilli-2537031/">Balu Adsumilli</a><sup>2</sup>&nbsp;&nbsp;
+      <a href="https://live.ece.utexas.edu/">Alan C. Bovik</a><sup>1,3</sup>
+    </p>
+    <p class="affil">
+      <sup>1</sup>The University of Texas at Austin &nbsp;&nbsp;
+      <sup>2</sup>Google, Inc. &nbsp;&nbsp;
+      <sup>3</sup>University of Colorado Boulder
+    </p>
+    <p class="note"><sup>&dagger;</sup>Work done while at The University of Texas at Austin.</p>
+
+    <div class="links">
+      <a class="btn disabled">Paper (arXiv, coming soon)</a>
+      <a class="btn" href="https://github.com/shreshthsaini/CachedSearch">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+        Code
+      </a>
+      <a class="btn ghost" href="https://shreshthsaini.github.io/blogs.html">Blog</a>
+      <a class="btn ghost" href="https://github.com/shreshthsaini/CachedSearch/blob/main/data/prompts_gate50.csv">Prompts &amp; seeds</a>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section>
+    <figure>
+      <img src="assets/fig1_overview.png" alt="Caching preserves candidate ranking, delivers more gain per second, and transfers across six models">
+      <figcaption>Caching preserves the ranking search depends on (left), which buys more reward per second of compute (middle), and the effect transfers across six models in four architecture families (right).</figcaption>
+    </figure>
+
+    <p class="lede">Test-time search makes small video models punch far above their weight, but it pays full price for every candidate it throws away. We show that the <em>candidate rankings</em> search depends on survive aggressive training-free caching. That means you can explore every candidate cheaply and re-generate only the winner at full compute.</p>
+
+    <div class="highlights">
+      <div class="card"><div class="num">94.7%</div><div class="lbl">of best-of-8's reward gain retained</div></div>
+      <div class="card"><div class="num">63%</div><div class="lbl">of full best-of-8's wall-clock cost</div></div>
+      <div class="card"><div class="num">+38%</div><div class="lbl">more gain at a matched budget</div></div>
+      <div class="card"><div class="num">6 models</div><div class="lbl">across four architecture families</div></div>
+    </div>
+  </section>
+
+  <section id="idea">
+    <h2>The idea</h2>
+    <p>A diffusion rollout inside search does two different jobs. <strong>Exploration</strong> produces a candidate for the verifier to rank; <strong>delivery</strong> produces the video the user actually sees. Only delivery needs to be faithful. Exploration needs the verifier's <em>ordering</em> of candidates to survive, which is a far weaker requirement, and it is exactly the requirement nobody had measured.</p>
+    <figure>
+      <img src="assets/fig2_method.png" alt="Explore all candidates under caching, score the drafts, re-generate the winning seed at full compute">
+      <figcaption>Explore cheap, commit full. All N candidates run under aggressive caching, a verifier scores the cheap drafts, and only the winning seed is re-generated at full compute. Because the sampler is deterministic in the seed, the delivered video is a genuine full-compute sample.</figcaption>
+    </figure>
+    <p>Caching therefore changes <em>which</em> candidate you select, never the quality of what ships. That reduces the safety of the whole scheme to one measurable quantity: how faithfully cached scores rank candidates.</p>
+  </section>
+
+  <section id="results">
+    <h2>What we measured</h2>
+    <p>Seed-matched twins: every candidate generated twice, once at full compute and once under caching, scored by the same verifier. Configured on a 50-prompt pilot grid, then re-measured on the full VBench and VBench-2.0 suites.</p>
+
+    <h3>Rankings survive</h3>
+    <p>Median per-prompt Spearman correlation is 0.905 with 72% top-1 agreement on VBench, and VBench-2.0 replicates it on a harder prompt distribution.</p>
+
+    <figure>
+      <img src="assets/gif_search.gif" alt="An unlucky sample beside the CachedSearch pick">
+      <figcaption>What search buys. "Robot dancing in Times Square": an unlucky seed on the left misses the scene entirely; the seed CachedSearch selected renders it. Both are delivered at full compute, so search only chooses between them. Selected example; aggregate behavior is in the capture and regret numbers.</figcaption>
+    </figure>
+
+    <h3>Failures are self-limiting</h3>
+    <p>Ranking corrupts preferentially on prompts whose candidates were nearly tied to begin with, which is exactly where picking the wrong one costs least. Median regret is zero.</p>
+
+    <figure>
+      <img src="assets/gif_twins.gif" alt="The same seed at full compute and under caching">
+      <figcaption>Why the ranking survives: the same seed at full compute (left) and under caching (right). The draft is roughly twice as cheap and is what the verifier ranks.</figcaption>
+    </figure>
+
+    <h3>The budget is not enough, the trajectory is</h3>
+    <p>The obvious alternative is to spend fewer denoising steps per candidate. At a matched two-fold saving, truncation keeps 72.6% of search's gain against caching's 90.1%, with roughly six times the regret. A truncated rollout is an honest sample of a <em>different</em>, shorter-schedule distribution, so its scores rank its own outputs rather than the videos that commit will deliver. Caching perturbs the same seed-matched trajectory, which is the property search actually needs.</p>
+
+    <figure>
+      <img src="assets/f16_hero.png" alt="Delivered reward versus compute budget">
+      <figcaption>Delivered reward against end-to-end budget. Above the break-even, cached exploration delivers more reward than full-compute best-of-N at the same cost; step truncation at the same per-candidate saving delivers less.</figcaption>
+    </figure>
+
+    <h3>Any published cache works as the engine</h3>
+    <p>Every caching family we tested drops in unchanged, and all of them land on a single capture-versus-speedup frontier: fidelity is set by how much compute you reuse, not by which mechanism reuses it.</p>
+
+    <div class="tablewrap">
+      <table>
+        <tr><th>Exploration engine</th><th class="num">Gain capture</th><th class="num">End-to-end cost</th></tr>
+        <tr><td>No caching (full best-of-8)</td><td class="num">100.0%</td><td class="num">621 s</td></tr>
+        <tr><td>PAB</td><td class="num">99.5%</td><td class="num">493 s</td></tr>
+        <tr><td>FasterCache CFG-Cache</td><td class="num">99.6%</td><td class="num">465 s</td></tr>
+        <tr><td>TeaCache</td><td class="num">93.2%</td><td class="num">365 s</td></tr>
+        <tr class="ours"><td>EasyCache (our default)</td><td class="num">90.1%</td><td class="num">346 s</td></tr>
+      </table>
+    </div>
+
+    <h3>The honest edge</h3>
+    <p>Keeping the cached draft instead of re-committing is cheaper still, but it dampens motion, and learned judges mildly <em>prefer</em> the dampened result. This is why commit is the default and why our keep-mode claims lean on optical flow and LPIPS rather than judge scores.</p>
+
+    <figure>
+      <img src="assets/gif_motion.gif" alt="Commit compared with keep at an aggressive threshold">
+      <figcaption>At an aggressive threshold, keeping the cached draft (right) dampens motion relative to the committed delivery (left).</figcaption>
+    </figure>
+  </section>
+
+  <section id="use">
+    <h2>Use it on your model</h2>
+    <p>CachedSearch is a wrapper around generation, not a new model, so adopting it is a change to your search loop rather than to your checkpoint.</p>
+<pre>from cachedsearch import cached_search
+
+result = cached_search(pipe, prompt, verifier=my_scorer, n=8, tau=0.10)
+result.video   # a genuine full-compute sample, at about 63% of best-of-8 cost</pre>
+    <p><code class="inline">pipe</code> is any diffusers video pipeline and <code class="inline">my_scorer</code> is whatever verifier you already trust. One number is model-specific: the caching threshold. Fidelity tracks architecture family rather than parameter count, so calibrate once per family with the script in the repository (about two GPU-hours) and reuse it across sizes.</p>
+
+    <h3>Tested models</h3>
+    <div class="tablewrap">
+      <table>
+        <tr><th>Model</th><th class="num">Params</th><th>Family</th><th class="num">Recommended &tau;</th><th class="num">Capture</th><th class="num">Speedup</th></tr>
+        <tr><td>Wan2.1-T2V-1.3B</td><td class="num">1.3B</td><td>Wan</td><td class="num">0.20</td><td class="num">88.3%</td><td class="num">2.41&times;</td></tr>
+        <tr><td>Wan2.1-T2V-14B</td><td class="num">14B</td><td>Wan</td><td class="num">0.10</td><td class="num">87.5%</td><td class="num">2.05&times;</td></tr>
+        <tr><td>Wan2.2-TI2V-5B</td><td class="num">5B</td><td>Wan</td><td class="num">0.10</td><td class="num">86.0%</td><td class="num">2.05&times;</td></tr>
+        <tr><td>CogVideoX-5B</td><td class="num">5B</td><td>CogVideoX</td><td class="num">0.05</td><td class="num">85.9%</td><td class="num">1.78&times;</td></tr>
+        <tr><td>HunyuanVideo</td><td class="num">13B</td><td>HunyuanVideo</td><td class="num">0.05</td><td class="num">85.1%</td><td class="num">1.77&times;</td></tr>
+        <tr><td>LTX-Video</td><td class="num">2B</td><td>LTX</td><td class="num">0.02</td><td class="num">79.6%</td><td class="num">1.71&times;</td></tr>
+      </table>
+    </div>
+    <p>The method is not limited to this list. It applies to any diffusion or flow-matching video model whose sampler is deterministic in the seed, which covers essentially every current open text-to-video pipeline. These six are simply where we measured the numbers ourselves. LTX-Video is the honest boundary case: no threshold we measured reached 85% capture, which is exactly what calibration is meant to reveal before deployment rather than after.</p>
+  </section>
+
+  <section id="cite">
+    <h2>Citation</h2>
+<pre>@article{saini2026cachedsearch,
+  title   = {CachedSearch: Training-Free Cached Exploration for Test-Time
+             Search in Video Diffusion},
+  author  = {Saini, Shreshth and Birkbeck, Neil and Wang, Yilin and
+             Adsumilli, Balu and Bovik, Alan C.},
+  year    = {2026},
+  note    = {arXiv id to be added at release}
+}</pre>
+  </section>
+
+  <section id="ack">
+    <h2>Acknowledgments</h2>
+    <p>This work builds directly on open releases from the video generation community. We thank the authors and teams behind
+      <a href="https://github.com/Wan-Video/Wan2.1">Wan2.1</a>,
+      <a href="https://github.com/THUDM/CogVideo">CogVideoX</a>,
+      <a href="https://github.com/Tencent/HunyuanVideo">HunyuanVideo</a>,
+      <a href="https://github.com/Lightricks/LTX-Video">LTX-Video</a>,
+      <a href="https://github.com/ali-vilab/TeaCache">TeaCache</a>,
+      <a href="https://github.com/NUS-HPC-AI-Lab/VideoSys">PAB and VideoSys</a>,
+      <a href="https://github.com/Vchitect/FasterCache">FasterCache</a>,
+      <a href="https://github.com/H-EmbodVis/EasyCache">EasyCache</a>,
+      <a href="https://github.com/THUDM/ImageReward">ImageReward</a>,
+      <a href="https://github.com/TIGER-AI-Lab/VideoScore">VideoScore</a>, and
+      <a href="https://github.com/Vchitect/VBench">VBench</a>.
+      Their public work made it possible to study cached exploration across a broad and reproducible ecosystem.</p>
+  </section>
+
+</div>
+
+<footer>
+  <div class="wrap">
+    <p>&copy; 2026 the authors &middot; <a href="https://github.com/shreshthsaini/CachedSearch">Code</a> &middot; <a href="https://shreshthsaini.github.io/">Shreshth Saini</a></p>
+  </div>
+</footer>
+
+</body>
+</html>
