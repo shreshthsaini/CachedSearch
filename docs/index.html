@@ -3,144 +3,175 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CachedSearch: Training-Free Cached Exploration for Test-Time Search in Video Diffusion</title>
-<meta name="description" content="Search cheap, commit full: 94.7% of best-of-8's reward gain at 63% of its cost, for any video diffusion model.">
+<title>CachedSearch &middot; Training-Free Cached Exploration for Test-Time Search in Video Diffusion</title>
+<meta name="description" content="Explore every candidate under caching, commit only the winner at full compute: 94.7% of best-of-8's reward gain at 63% of its cost.">
 <meta property="og:title" content="CachedSearch: Training-Free Cached Exploration for Test-Time Search in Video Diffusion">
 <meta property="og:description" content="Candidate rankings survive aggressive caching, so search can explore cheap and commit full.">
 <meta property="og:image" content="https://shreshthsaini.github.io/CachedSearch/assets/fig1_overview.png">
 <meta name="twitter:card" content="summary_large_image">
 <style>
-  :root{
-    --ink:#12141a;
-    --body:#474c58;
-    --soft:#767d8c;
-    --rule:#e8e6e1;
-    --bg:#fbfaf7;
-    --card:#ffffff;
-    --accent:#3d5afe;
-    --accent-2:#0f9d76;
-    --wash:#f1f0fb;
-    --serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
-    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
-    --mono:'SF Mono',ui-monospace,Menlo,Monaco,'Fira Code',monospace;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  html{scroll-behavior:smooth}
-  body{font-family:var(--sans);background:var(--bg);color:var(--body);font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:1120px;margin:0 auto;padding:0 30px}
-  .col{max-width:820px;margin-left:auto;margin-right:auto}
+:root{
+  --ink:#0e1116; --ink-2:#1c222c; --paper:#f6f4ef; --paper-2:#fffefb;
+  --text:#3a4150; --dim:#79808f; --rule:#e2ded4;
+  --hot:#ff5c39;      /* signature accent */
+  --cool:#0d9488;     /* measured / positive */
+  --serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --mono:'SF Mono',ui-monospace,Menlo,Monaco,'Fira Code',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--paper);color:var(--text);font-family:var(--sans);font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1160px;margin:0 auto;padding:0 32px}
+.col{max-width:820px;margin:0 auto}
+em{font-style:italic}
 
-  /* ---------------- hero ---------------- */
-  .hero{padding:78px 0 12px;text-align:center;position:relative;overflow:hidden}
-  .hero::before{
-    content:"";position:absolute;inset:-30% 0 auto 0;height:640px;z-index:0;
-    background:
-      radial-gradient(560px 300px at 50% 0%, rgba(61,90,254,.10), transparent 70%),
-      radial-gradient(420px 260px at 78% 12%, rgba(15,157,118,.08), transparent 70%);
-  }
-  .hero > *{position:relative;z-index:1}
-  .badge{
-    display:inline-block;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
-    color:var(--accent);background:var(--wash);border-radius:999px;padding:6px 16px;
-  }
-  h1{
-    font-family:var(--serif);font-weight:600;color:var(--ink);
-    font-size:clamp(32px,4.6vw,50px);line-height:1.14;letter-spacing:-.015em;
-    margin:22px auto 0;max-width:17ch;text-wrap:balance;
-  }
-  h1 em{font-style:normal;color:var(--accent)}
-  .sub{font-size:19.5px;color:var(--soft);margin:20px auto 0;max-width:60ch;line-height:1.55}
+/* ---------- sticky rail ---------- */
+nav{position:sticky;top:0;z-index:50;background:rgba(246,244,239,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--rule)}
+nav .inner{max-width:1160px;margin:0 auto;padding:0 32px;height:56px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+nav .mark{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--ink);letter-spacing:-.02em;text-decoration:none;white-space:nowrap}
+nav .mark span{color:var(--hot)}
+nav .links{display:flex;gap:22px;font-size:14px}
+nav .links a{color:var(--dim);text-decoration:none}
+nav .links a:hover{color:var(--ink)}
+@media(max-width:720px){nav .links{display:none}}
 
-  .authors{margin-top:30px;font-size:16.5px;color:var(--ink);line-height:2.1}
-  .authors a{color:var(--ink);text-decoration:none;border-bottom:1.5px solid rgba(61,90,254,.28)}
-  .authors a:hover{color:var(--accent);border-bottom-color:var(--accent)}
-  .authors sup{color:var(--soft);font-size:11px}
-  .affil{font-size:14.5px;color:var(--soft);margin-top:10px}
-  .affil sup{font-size:10.5px}
-  .fnote{font-size:12.5px;color:var(--soft);margin-top:9px}
+/* ---------- hero ---------- */
+.hero{padding:76px 0 64px;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;left:50%;top:-180px;width:1100px;height:620px;transform:translateX(-50%);
+  background:radial-gradient(closest-side, rgba(255,92,57,.10), transparent 72%);pointer-events:none}
+.hero>*{position:relative}
+.kicker{display:inline-flex;gap:10px;align-items:center;font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--hot);text-transform:uppercase}
+.kicker::before,.kicker::after{content:"";width:26px;height:1px;background:currentColor;opacity:.5}
+h1{font-family:var(--serif);font-weight:600;color:var(--ink);font-size:clamp(34px,5.2vw,58px);line-height:1.08;letter-spacing:-.02em;margin:20px auto 0;max-width:15ch;text-wrap:balance}
+h1 .u{background:linear-gradient(transparent 62%, rgba(255,92,57,.28) 62%)}
+.sub{font-size:20px;color:var(--dim);max-width:58ch;margin:22px auto 0;line-height:1.55}
+.authors{margin-top:34px;font-size:16.5px;color:var(--ink);line-height:2.1}
+.authors a{color:var(--ink);text-decoration:none;border-bottom:1.5px solid rgba(255,92,57,.35)}
+.authors a:hover{color:var(--hot)}
+.authors sup{font-size:11px;color:var(--dim)}
+.affil{font-size:14px;color:var(--dim);margin-top:10px}
+.fnote{font-size:12.5px;color:var(--dim);margin-top:8px}
+.cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:34px}
+.btn{display:inline-flex;align-items:center;gap:9px;padding:12px 24px;border-radius:6px;font-size:15px;font-weight:640;text-decoration:none;border:1px solid var(--ink);color:var(--ink);background:transparent;transition:.15s}
+.btn:hover{background:var(--ink);color:var(--paper)}
+.btn.solid{background:var(--ink);color:var(--paper)}
+.btn.solid:hover{background:var(--hot);border-color:var(--hot)}
+.btn.off{opacity:.35;pointer-events:none}
+.btn svg{width:16px;height:16px;fill:currentColor}
 
-  .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:32px}
-  .btn{
-    display:inline-flex;align-items:center;gap:9px;font-size:15px;font-weight:650;
-    padding:12px 22px;border-radius:999px;text-decoration:none;transition:.15s ease;
-    background:var(--card);color:var(--ink);border:1px solid var(--rule);
-  }
-  .btn:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px)}
-  .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
-  .btn.primary:hover{background:var(--accent);border-color:var(--accent);color:#fff}
-  .btn.dim{opacity:.42;pointer-events:none}
-  .btn svg{width:16px;height:16px;fill:currentColor}
+/* ---------- pipeline animation ---------- */
+.pipe{margin:62px auto 0;max-width:760px;background:var(--paper-2);border:1px solid var(--rule);border-radius:14px;padding:26px 24px 20px}
+.pipe .row{display:flex;align-items:center;justify-content:center;gap:22px;flex-wrap:wrap}
+.drafts{display:flex;gap:7px}
+.d{width:26px;height:34px;border-radius:4px;background:#dfe3ea;position:relative;animation:draft 4.2s infinite}
+.d:nth-child(2){animation-delay:.12s}.d:nth-child(3){animation-delay:.24s}.d:nth-child(4){animation-delay:.36s}
+.d:nth-child(5){animation-delay:.48s}.d:nth-child(6){animation-delay:.6s}.d:nth-child(7){animation-delay:.72s}
+.d:nth-child(8){animation-delay:.84s}
+.d.win{animation:win 4.2s infinite}
+@keyframes draft{0%,12%{opacity:.25}22%,70%{opacity:.75}100%{opacity:.25}}
+@keyframes win{0%,12%{opacity:.25;background:#dfe3ea}22%,58%{opacity:.85;background:#dfe3ea}
+  66%,92%{opacity:1;background:var(--hot);box-shadow:0 0 0 3px rgba(255,92,57,.22)}100%{opacity:.25;background:#dfe3ea}}
+.arrow{color:var(--dim);font-size:19px}
+.stage{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);text-align:center;margin-top:9px}
+.final{width:52px;height:34px;border-radius:4px;background:var(--ink);position:relative;animation:final 4.2s infinite}
+@keyframes final{0%,66%{opacity:.12}76%,94%{opacity:1}100%{opacity:.12}}
+.pipe .legend{text-align:center;font-size:14px;color:var(--dim);margin-top:16px;border-top:1px solid var(--rule);padding-top:14px}
 
-  .metrics{display:flex;flex-wrap:wrap;justify-content:center;gap:52px;margin:52px auto 0}
-  .metric .v{font-family:var(--serif);font-size:38px;font-weight:600;color:var(--ink);letter-spacing:-.02em;line-height:1}
-  .metric .v span{color:var(--accent)}
-  .metric .k{font-size:13.5px;color:var(--soft);margin-top:7px;max-width:16ch;margin-inline:auto}
+/* ---------- sections ---------- */
+section{padding:82px 0;border-top:1px solid var(--rule)}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--hot);text-align:center;display:block}
+h2{font-family:var(--serif);font-weight:600;font-size:clamp(27px,3.2vw,36px);color:var(--ink);letter-spacing:-.015em;text-align:center;margin:12px auto 16px;max-width:24ch}
+.lead{font-size:18.5px;color:var(--dim);text-align:center;max-width:72ch;margin:0 auto 40px}
+h3{font-size:19px;font-weight:700;color:var(--ink);margin-bottom:10px}
+p{margin-bottom:16px}p:last-child{margin-bottom:0}
+a{color:var(--hot)}
 
-  /* ---------------- sections ---------------- */
-  section{padding:74px 0;border-top:1px solid var(--rule)}
-  .kicker{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);text-align:center;display:block}
-  h2{font-family:var(--serif);font-weight:600;font-size:32px;color:var(--ink);letter-spacing:-.015em;text-align:center;margin:12px auto 14px;max-width:22ch}
-  .lead{font-size:18px;color:var(--soft);text-align:center;max-width:70ch;margin:0 auto 34px}
-  h3{font-size:19px;font-weight:700;color:var(--ink);margin:0 0 10px}
-  p{margin-bottom:16px}
-  p:last-child{margin-bottom:0}
-  a{color:var(--accent)}
+/* ---------- budget explorer ---------- */
+.explorer{background:var(--ink);color:#e9ecf2;border-radius:18px;padding:36px 34px 30px;max-width:960px;margin:0 auto}
+.explorer h3{color:#fff;text-align:center;font-size:17px;margin-bottom:6px}
+.explorer .hint{text-align:center;color:#98a1b3;font-size:14px;margin-bottom:26px}
+.seg{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:30px}
+.seg button{font-family:var(--mono);font-size:14px;padding:9px 18px;border-radius:999px;border:1px solid rgba(255,255,255,.18);background:transparent;color:#cbd2df;cursor:pointer;transition:.14s}
+.seg button:hover{border-color:var(--hot);color:#fff}
+.seg button[aria-pressed="true"]{background:var(--hot);border-color:var(--hot);color:#fff}
+.bars{display:grid;gap:18px;max-width:720px;margin:0 auto}
+.bar-row{display:grid;grid-template-columns:140px 1fr auto;align-items:center;gap:16px}
+.bar-row .name{font-size:14.5px;color:#aeb6c6}
+.track{height:34px;background:rgba(255,255,255,.06);border-radius:6px;overflow:hidden}
+.fill{height:100%;border-radius:6px;transition:width .5s cubic-bezier(.4,0,.2,1)}
+.fill.full{background:linear-gradient(90deg,#4b5566,#5f6a7d)}
+.fill.ours{background:linear-gradient(90deg,var(--hot),#ff8a63)}
+.bar-row .val{font-family:var(--mono);font-size:14px;color:#fff;min-width:74px;text-align:right}
+.readout{display:flex;justify-content:center;gap:46px;flex-wrap:wrap;margin-top:30px;padding-top:24px;border-top:1px solid rgba(255,255,255,.1)}
+.readout div{text-align:center}
+.readout .v{font-family:var(--serif);font-size:30px;color:#fff;line-height:1.1}
+.readout .v.hot{color:var(--hot)}
+.readout .k{font-size:12.5px;color:#98a1b3;margin-top:5px}
+.explorer .foot{text-align:center;font-size:12.5px;color:#7d8698;margin-top:22px}
 
-  figure img{width:100%;height:auto;display:block;border-radius:12px;border:1px solid var(--rule);background:#fff}
-  figcaption{font-size:13.5px;color:var(--soft);line-height:1.55;margin-top:11px;text-align:center}
+/* ---------- gallery ---------- */
+.gal{display:grid;grid-template-columns:1fr;gap:24px;max-width:920px;margin:0 auto}
+@media(min-width:1200px){.gal.pair{grid-template-columns:1fr 1fr;max-width:none}}
+.shot{background:var(--paper-2);border:1px solid var(--rule);border-radius:12px;overflow:hidden;transition:.2s}
+.shot:hover{box-shadow:0 14px 34px rgba(14,17,22,.09);transform:translateY(-2px)}
+.shot img{width:100%;display:block}
+.shot .meta{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:13px 18px 15px;border-top:1px solid var(--rule)}
+.shot .meta b{font-size:15px;color:var(--ink);font-weight:640}
+.shot .meta .g{font-family:var(--mono);font-size:13.5px;color:var(--cool);white-space:nowrap}
 
-  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:34px}
-  @media(max-width:800px){.steps{grid-template-columns:1fr}}
-  .step{background:var(--card);border:1px solid var(--rule);border-radius:14px;padding:24px 22px;text-align:center}
-  .step .n{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;margin:0 auto 13px;font-size:14px;font-weight:800;color:#fff;background:var(--ink)}
-  .step h4{font-size:16px;font-weight:700;color:var(--ink);margin-bottom:6px}
-  .step p{font-size:15px;color:var(--soft);margin:0}
+/* ---------- findings ---------- */
+.finds{display:grid;gap:26px;max-width:920px;margin:0 auto}
+.find{background:var(--paper-2);border:1px solid var(--rule);border-radius:14px;padding:30px 32px}
+.find .num{font-family:var(--mono);font-size:12px;color:var(--hot);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;display:block}
+.find p{font-size:16.5px}
+.stats{display:flex;flex-wrap:wrap;gap:36px;margin-top:20px;padding-top:18px;border-top:1px solid var(--rule)}
+.stats span{display:block;font-family:var(--serif);font-size:27px;color:var(--ink);line-height:1.05}
+.stats small{font-size:12.5px;color:var(--dim)}
+figure{margin-top:22px}
+figure img{width:100%;display:block;border-radius:10px;border:1px solid var(--rule);background:#fff}
+figcaption{font-size:13.5px;color:var(--dim);margin-top:11px;text-align:center;line-height:1.5}
 
-  .gallery{display:grid;grid-template-columns:1fr;gap:26px;max-width:900px;margin:0 auto}
-  @media(min-width:1180px){.gallery.two{grid-template-columns:1fr 1fr;max-width:none}}
-  .gcard{background:var(--card);border:1px solid var(--rule);border-radius:14px;overflow:hidden;transition:.18s ease}
-  .gcard:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(18,20,26,.07)}
-  .gcard img{width:100%;display:block}
-  .gcard .cap{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:14px 18px 16px}
-  .gcard .cap b{font-size:15px;font-weight:650;color:var(--ink)}
-  .gcard .cap .gain{font-size:14px;font-weight:700;color:var(--accent-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+/* ---------- table + code ---------- */
+.tbl{overflow-x:auto;background:var(--paper-2);border:1px solid var(--rule);border-radius:12px}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{padding:13px 18px;text-align:left;border-bottom:1px solid var(--rule)}
+tr:last-child td{border-bottom:0}
+th{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);font-weight:600}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr.us td{background:rgba(255,92,57,.07);font-weight:640;color:var(--ink)}
+pre{background:var(--ink);color:#e7ecf7;border-radius:12px;padding:24px 26px;overflow-x:auto;font-family:var(--mono);font-size:13.5px;line-height:1.72}
+pre .c{color:#7f899b}pre .k{color:#7fe3c8}
+code.i{font-family:var(--mono);font-size:.88em;background:var(--paper-2);border:1px solid var(--rule);border-radius:5px;padding:1px 6px}
+.note{background:var(--paper-2);border:1px solid var(--rule);border-left:3px solid var(--cool);border-radius:0 12px 12px 0;padding:20px 24px;font-size:16px}
 
-  .evidence{display:grid;gap:30px;margin-top:6px}
-  .ev{background:var(--card);border:1px solid var(--rule);border-radius:16px;padding:30px 32px}
-  .ev .tag{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);background:var(--wash);border-radius:999px;padding:4px 12px;margin-bottom:12px}
-  .ev p{font-size:16.5px}
-  .ev figure{margin-top:20px}
-  .statline{display:flex;flex-wrap:wrap;gap:34px;margin-top:18px;padding-top:18px;border-top:1px solid var(--rule)}
-  .statline div span{display:block;font-family:var(--serif);font-size:26px;color:var(--ink);line-height:1.1}
-  .statline div small{font-size:12.5px;color:var(--soft)}
-
-  .tablewrap{overflow-x:auto;background:var(--card);border:1px solid var(--rule);border-radius:14px}
-  table{border-collapse:collapse;width:100%;font-size:15px}
-  th,td{padding:13px 18px;text-align:left;border-bottom:1px solid var(--rule)}
-  tr:last-child td{border-bottom:0}
-  th{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--soft);font-weight:700}
-  td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
-  tr.ours td{background:var(--wash);font-weight:650;color:var(--ink)}
-
-  pre{background:var(--ink);color:#e7ecf7;border-radius:14px;padding:24px 26px;overflow-x:auto;font-family:var(--mono);font-size:13.5px;line-height:1.7}
-  pre .c{color:#8891a5}
-  pre .k{color:#7fe3c8}
-  code.i{font-family:var(--mono);font-size:.87em;background:#fff;border:1px solid var(--rule);border-radius:5px;padding:1px 6px}
-
-  .note{background:var(--card);border:1px solid var(--rule);border-left:3px solid var(--accent-2);border-radius:0 14px 14px 0;padding:20px 24px;font-size:16px}
-
-  footer{padding:44px 0 60px;text-align:center;font-size:14px;color:var(--soft);border-top:1px solid var(--rule)}
-  footer a{color:var(--body);text-decoration:none;margin:0 10px}
-  footer a:hover{color:var(--accent)}
+footer{background:var(--ink);color:#8e96a6;padding:46px 0;text-align:center;font-size:14px}
+footer a{color:#dfe3ea;text-decoration:none;margin:0 12px}
+footer a:hover{color:var(--hot)}
 </style>
 </head>
 <body>
 
-<header class="hero">
+<nav>
+  <div class="inner">
+    <a class="mark" href="#top">cached<span>·</span>search</a>
+    <div class="links">
+      <a href="#how">How it works</a>
+      <a href="#explore">Cost explorer</a>
+      <a href="#gallery">Gallery</a>
+      <a href="#findings">Findings</a>
+      <a href="#start">Quickstart</a>
+      <a href="https://shreshthsaini.github.io/blogs/cachedsearch.html">Blog</a>
+      <a href="https://github.com/shreshthsaini/CachedSearch">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
   <div class="wrap">
-    <span class="badge">Training-free &middot; Plug-in &middot; Any verifier</span>
-    <h1>Test-time search in video diffusion at <em>63% of the cost</em></h1>
-    <p class="sub">Search only needs candidate <em>rankings</em> to survive acceleration. They do. So explore every candidate under aggressive caching, then re-generate only the winner at full compute.</p>
+    <span class="kicker">Training-free &middot; any cache &middot; any verifier</span>
+    <h1>Search wide. Pay for <span class="u">one</span> rollout.</h1>
+    <p class="sub">Test-time search only needs candidate <em>rankings</em> to survive acceleration. They do. So explore every candidate under aggressive caching, then re-generate only the winner at full compute.</p>
 
     <p class="authors">
       <a href="https://shreshthsaini.github.io/">Shreshth Saini</a><sup>1,2,&dagger;</sup>&nbsp;&nbsp;
@@ -153,81 +184,114 @@
     <p class="fnote"><sup>&dagger;</sup>Work done while at The University of Texas at Austin.</p>
 
     <div class="cta">
-      <a class="btn primary dim">Paper (arXiv soon)</a>
+      <a class="btn solid off">Paper (arXiv soon)</a>
       <a class="btn" href="https://github.com/shreshthsaini/CachedSearch">
         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
         Code
       </a>
-      <a class="btn" href="#gallery">Video gallery</a>
-      <a class="btn" href="#start">Quickstart</a>
+      <a class="btn" href="#gallery">See the videos</a>
+      <a class="btn" href="https://shreshthsaini.github.io/blogs/cachedsearch.html">Read the blog</a>
     </div>
 
-    <div class="metrics">
-      <div class="metric"><div class="v"><span>94.7%</span></div><div class="k">of best-of-8's reward gain retained</div></div>
-      <div class="metric"><div class="v">63%</div><div class="k">of full best-of-8's wall-clock</div></div>
-      <div class="metric"><div class="v">+38%</div><div class="k">more gain at a matched budget</div></div>
-      <div class="metric"><div class="v">6</div><div class="k">models, four architecture families</div></div>
+    <div class="pipe" id="how">
+      <div class="row">
+        <div>
+          <div class="drafts">
+            <div class="d"></div><div class="d"></div><div class="d"></div><div class="d win"></div>
+            <div class="d"></div><div class="d"></div><div class="d"></div><div class="d"></div>
+          </div>
+          <div class="stage">explore cached</div>
+        </div>
+        <div class="arrow">&rarr;</div>
+        <div>
+          <div class="drafts"><div class="d win" style="width:34px"></div></div>
+          <div class="stage">verifier picks</div>
+        </div>
+        <div class="arrow">&rarr;</div>
+        <div>
+          <div class="final"></div>
+          <div class="stage">commit full</div>
+        </div>
+      </div>
+      <p class="legend">Eight drafts at half price, one full-compute delivery. The shipped video is a genuine full-compute sample, because the sampler is deterministic in its seed.</p>
     </div>
   </div>
 </header>
 
-<section id="idea">
+<section id="explore">
   <div class="wrap">
-    <span class="kicker">The idea</span>
-    <h2>One rollout, two different jobs</h2>
-    <p class="lead">Inside test-time search, a diffusion rollout does two things at once. Exploration produces a candidate for the verifier to rank; delivery produces the video a person actually watches. Only delivery has to be faithful.</p>
+    <span class="eyebrow">Cost explorer</span>
+    <h2>What search width costs, with and without us</h2>
+    <p class="lead">Every bar below is measured on Wan2.1-T2V-1.3B: a full rollout takes 68.3 s, a cached draft 34.7 s. Pick a search width to see what each strategy spends and how much of full search's reward gain survives.</p>
 
-    <figure class="col">
-      <img src="assets/fig2_method.png" alt="Explore all candidates under caching, score the drafts, re-generate the winner at full compute">
-      <figcaption>Exploration needs only the <em>order</em> of candidates to survive, a far weaker requirement than fidelity, and the one nobody had measured.</figcaption>
-    </figure>
+    <div class="explorer">
+      <h3>Search width</h3>
+      <p class="hint">measured operating points</p>
+      <div class="seg" id="seg">
+        <button data-n="2" aria-pressed="false">N = 2</button>
+        <button data-n="4" aria-pressed="false">N = 4</button>
+        <button data-n="8" aria-pressed="true">N = 8</button>
+        <button data-n="16" aria-pressed="false">N = 16</button>
+      </div>
 
-    <div class="steps">
-      <div class="step"><div class="n">1</div><h4>Explore cheap</h4><p>Generate all N candidates with a training-free cache enabled, at roughly half the cost each.</p></div>
-      <div class="step"><div class="n">2</div><h4>Rank the drafts</h4><p>Score the cheap drafts with the verifier your workflow already trusts.</p></div>
-      <div class="step"><div class="n">3</div><h4>Commit full</h4><p>Re-generate only the winning seed at full compute and deliver that.</p></div>
+      <div class="bars">
+        <div class="bar-row">
+          <span class="name">Full best-of-N</span>
+          <div class="track"><div class="fill full" id="bar-full" style="width:100%"></div></div>
+          <span class="val" id="val-full">547 s</span>
+        </div>
+        <div class="bar-row">
+          <span class="name">CachedSearch</span>
+          <div class="track"><div class="fill ours" id="bar-ours" style="width:63%"></div></div>
+          <span class="val" id="val-ours">346 s</span>
+        </div>
+      </div>
+
+      <div class="readout">
+        <div><div class="v hot" id="r-cost">63%</div><div class="k">of full search's cost</div></div>
+        <div><div class="v" id="r-cap">94.7%</div><div class="k">of its reward gain</div></div>
+        <div><div class="v" id="r-save">201 s</div><div class="k">saved per prompt</div></div>
+      </div>
+      <p class="foot" id="r-note">At N = 8, recommit costs 8 cached drafts plus one full rollout.</p>
     </div>
-
-    <p class="lead" style="margin:34px auto 0">Because the sampler is deterministic in its seed, what ships is a genuine full-compute sample. Caching decides <em>which</em> candidate you get, never how good the delivered one is.</p>
   </div>
 </section>
 
 <section id="gallery">
   <div class="wrap">
-    <span class="kicker">Video gallery</span>
-    <h2>What search actually buys</h2>
-    <p class="lead">Each pair is one prompt: an unlucky candidate on the left, the candidate CachedSearch selected on the right. Both are delivered at full compute, so search is only choosing between them. The number is the reward gap in verifier units. Selected showcases; aggregate behavior is the capture and regret analysis below.</p>
+    <span class="eyebrow">Video gallery</span>
+    <h2>What search actually buys you</h2>
+    <p class="lead">One prompt per clip: an unlucky candidate on the left, the candidate CachedSearch selected on the right. Both are delivered at full compute, so search is only choosing between them. The figure is the reward gap in verifier units. Selected showcases; the aggregate is in the findings below.</p>
 
-    <div class="gallery">
-      <div class="gcard"><img loading="lazy" src="assets/gallery/gal_robot_dancing_in_times_squar.gif" alt="Robot dancing in Times Square"><div class="cap"><b>Robot dancing in Times Square</b><span class="gain">+2.96 reward</span></div></div>
-      <div class="gcard"><img loading="lazy" src="assets/gallery/gal_a_person_is_playing_harp.gif" alt="A person is playing harp"><div class="cap"><b>A person is playing harp</b><span class="gain">+3.91 reward</span></div></div>
-      <div class="gcard"><img loading="lazy" src="assets/gallery/gal_a_boat_sailing_leisurely_alo.gif" alt="A boat sailing along the Seine with the Eiffel Tower"><div class="cap"><b>A boat sailing along the Seine</b><span class="gain">+3.28 reward</span></div></div>
-      <div class="gcard"><img loading="lazy" src="assets/gallery/gal_a_red_clock.gif" alt="a red clock"><div class="cap"><b>A red clock</b><span class="gain">+3.25 reward</span></div></div>
+    <div class="gal">
+      <div class="shot"><img loading="lazy" src="assets/gallery/gal_robot_dancing_in_times_squar.gif" alt="Robot dancing in Times Square"><div class="meta"><b>Robot dancing in Times Square</b><span class="g">+2.96</span></div></div>
+      <div class="shot"><img loading="lazy" src="assets/gallery/gal_a_person_is_playing_harp.gif" alt="A person is playing harp"><div class="meta"><b>A person is playing harp</b><span class="g">+3.91</span></div></div>
+      <div class="shot"><img loading="lazy" src="assets/gallery/gal_a_boat_sailing_leisurely_alo.gif" alt="A boat sailing along the Seine"><div class="meta"><b>A boat sailing along the Seine</b><span class="g">+3.28</span></div></div>
     </div>
 
-    <div class="gallery two" style="margin-top:26px">
-      <div class="gcard"><img loading="lazy" src="assets/gallery/gal_a_pink_clock.gif" alt="a pink clock"><div class="cap"><b>A pink clock</b><span class="gain">+3.03</span></div></div>
-      <div class="gcard"><img loading="lazy" src="assets/gallery/gal_a_book_and_a_clock.gif" alt="a book and a clock"><div class="cap"><b>A book and a clock</b><span class="gain">+3.03</span></div></div>
-      <div class="gcard"><img loading="lazy" src="assets/gallery/gal_a_bench_on_the_left_of_a_tru.gif" alt="a bench on the left of a truck"><div class="cap"><b>A bench left of a truck</b><span class="gain">+2.97</span></div></div>
-      <div class="gcard"><img loading="lazy" src="assets/gallery/gal_a_couch_on_the_right_of_a_be.gif" alt="a couch on the right of a bed"><div class="cap"><b>A couch right of a bed</b><span class="gain">+2.92</span></div></div>
-      <div class="gcard"><img loading="lazy" src="assets/gallery/gal_a_green_bicycle.gif" alt="a green bicycle"><div class="cap"><b>A green bicycle</b><span class="gain">+2.86</span></div></div>
-      <div class="gcard"><img loading="lazy" src="assets/gallery/gal_a_black_car.gif" alt="a black car"><div class="cap"><b>A black car</b><span class="gain">+2.81</span></div></div>
+    <div class="gal pair" style="margin-top:24px">
+      <div class="shot"><img loading="lazy" src="assets/gallery/gal_a_red_clock.gif" alt="a red clock"><div class="meta"><b>A red clock</b><span class="g">+3.25</span></div></div>
+      <div class="shot"><img loading="lazy" src="assets/gallery/gal_a_pink_clock.gif" alt="a pink clock"><div class="meta"><b>A pink clock</b><span class="g">+3.03</span></div></div>
+      <div class="shot"><img loading="lazy" src="assets/gallery/gal_a_book_and_a_clock.gif" alt="a book and a clock"><div class="meta"><b>A book and a clock</b><span class="g">+3.03</span></div></div>
+      <div class="shot"><img loading="lazy" src="assets/gallery/gal_a_bench_on_the_left_of_a_tru.gif" alt="a bench on the left of a truck"><div class="meta"><b>A bench left of a truck</b><span class="g">+2.97</span></div></div>
+      <div class="shot"><img loading="lazy" src="assets/gallery/gal_a_couch_on_the_right_of_a_be.gif" alt="a couch on the right of a bed"><div class="meta"><b>A couch right of a bed</b><span class="g">+2.92</span></div></div>
+      <div class="shot"><img loading="lazy" src="assets/gallery/gal_a_green_bicycle.gif" alt="a green bicycle"><div class="meta"><b>A green bicycle</b><span class="g">+2.86</span></div></div>
     </div>
   </div>
 </section>
 
-<section id="evidence">
+<section id="findings">
   <div class="wrap">
-    <span class="kicker">Evidence</span>
-    <h2>Three findings, measured on VBench and VBench-2.0</h2>
-    <p class="lead">Every candidate generated twice from identical seeds, once at full compute and once cached, then scored by the same verifier. Configured on a pilot grid, re-measured on the full suites.</p>
+    <span class="eyebrow">Findings</span>
+    <h2>Measured on VBench and VBench-2.0</h2>
+    <p class="lead">Every candidate generated twice from identical seeds, once at full compute and once cached, then scored by the same verifier. Configured on a pilot grid and re-measured on the full suites.</p>
 
-    <div class="evidence col">
-      <article class="ev">
-        <span class="tag">Finding 1</span>
+    <div class="finds">
+      <article class="find">
+        <span class="num">Finding 01</span>
         <h3>Rankings survive caching</h3>
-        <p>Cached and full-compute orderings agree closely, which is the property search actually depends on. The draft the verifier scores is roughly twice as cheap as the sample it stands in for.</p>
-        <div class="statline">
+        <p>Cached and full-compute orderings agree closely, which is the only property search depends on. The draft the verifier scores costs about half of the sample it stands in for.</p>
+        <div class="stats">
           <div><span>0.905</span><small>median Spearman &rho;</small></div>
           <div><span>72%</span><small>top-1 agreement</small></div>
           <div><span>2&times;</span><small>cheaper per draft</small></div>
@@ -236,21 +300,21 @@
           <figcaption>Same seed: full compute on the left, the cached draft the verifier ranks on the right.</figcaption></figure>
       </article>
 
-      <article class="ev">
-        <span class="tag">Finding 2</span>
+      <article class="find">
+        <span class="num">Finding 02</span>
         <h3>When ranking breaks, it breaks cheaply</h3>
-        <p>Corruption concentrates on prompts whose candidates were nearly tied to begin with, exactly where choosing wrong costs least. Most prompts lose nothing at all, so the failure mode is self-limiting rather than compounding.</p>
-        <div class="statline">
+        <p>Corruption concentrates on prompts whose candidates were nearly tied to begin with, exactly where choosing wrong costs least. Most prompts lose nothing at all, so the failure mode is self-limiting rather than compounding with search width.</p>
+        <div class="stats">
           <div><span>0</span><small>median regret</small></div>
           <div><span>+0.31</span><small>corr(spread, &rho;)</small></div>
         </div>
       </article>
 
-      <article class="ev">
-        <span class="tag">Finding 3</span>
+      <article class="find">
+        <span class="num">Finding 03</span>
         <h3>The trajectory matters, not the budget</h3>
-        <p>The obvious alternative is fewer denoising steps per candidate. At a matched two-fold saving it does far worse, because a truncated rollout honestly samples a <em>different</em>, shorter-schedule distribution: its scores rank its own outputs rather than the full-compute videos that commit will deliver. Caching perturbs the same seed-matched trajectory, which is what search needs.</p>
-        <div class="statline">
+        <p>The obvious alternative is fewer denoising steps per candidate. At a matched two-fold saving it does far worse, because a truncated rollout honestly samples a <em>different</em>, shorter-schedule distribution: its scores rank its own outputs, not the full-compute videos that commit will deliver. Caching perturbs the same seed-matched trajectory, which is exactly what search needs.</p>
+        <div class="stats">
           <div><span>90.1%</span><small>capture, caching</small></div>
           <div><span>72.6%</span><small>capture, truncation</small></div>
           <div><span>6&times;</span><small>more regret from truncation</small></div>
@@ -259,24 +323,24 @@
           <figcaption>Above break-even, cached exploration delivers more reward than full search at equal budget; truncation delivers less.</figcaption></figure>
       </article>
 
-      <article class="ev">
-        <span class="tag">Generality</span>
-        <h3>Any published cache works as the engine</h3>
-        <p>Every caching family we tested drops in unchanged and lands on one capture-versus-speedup frontier. Fidelity is set by how much compute you reuse, not by which mechanism reuses it.</p>
-        <div class="tablewrap" style="margin-top:18px">
+      <article class="find">
+        <span class="num">Generality</span>
+        <h3>Any published cache can be the engine</h3>
+        <p>Every caching family we tested drops in unchanged and lands on one capture-versus-speedup frontier. Fidelity is set by how much compute you reuse, not by which mechanism reuses it, so a stack already running TeaCache or PAB keeps it and simply gains the explore-cheap structure.</p>
+        <div class="tbl" style="margin-top:20px">
           <table>
             <tr><th>Exploration engine</th><th class="n">Gain capture</th><th class="n">End-to-end cost</th></tr>
             <tr><td>No caching (full best-of-8)</td><td class="n">100.0%</td><td class="n">621 s</td></tr>
             <tr><td>PAB</td><td class="n">99.5%</td><td class="n">493 s</td></tr>
             <tr><td>FasterCache CFG-Cache</td><td class="n">99.6%</td><td class="n">465 s</td></tr>
             <tr><td>TeaCache</td><td class="n">93.2%</td><td class="n">365 s</td></tr>
-            <tr class="ours"><td>EasyCache (our default)</td><td class="n">90.1%</td><td class="n">346 s</td></tr>
+            <tr class="us"><td>EasyCache (our default)</td><td class="n">90.1%</td><td class="n">346 s</td></tr>
           </table>
         </div>
       </article>
 
-      <article class="ev">
-        <span class="tag">Honest edge</span>
+      <article class="find">
+        <span class="num">Honest edge</span>
         <h3>Keep-mode dampens motion</h3>
         <p>Keeping the cached draft instead of re-committing is cheaper still, but it dampens motion, and learned judges mildly <em>prefer</em> the dampened result. That is why commit is the default, and why our keep-mode claims rest on optical flow and LPIPS rather than judge scores.</p>
         <figure><img loading="lazy" src="assets/gif_motion.gif" alt="Commit against keep at an aggressive threshold">
@@ -288,9 +352,9 @@
 
 <section id="start">
   <div class="wrap">
-    <span class="kicker">Quickstart</span>
+    <span class="eyebrow">Quickstart</span>
     <h2>Three lines in your search loop</h2>
-    <p class="lead">CachedSearch wraps generation rather than replacing your model, so adoption changes your search loop and nothing else. The verifier defaults to ImageReward, the scorer behind every number here; pass your own to override it.</p>
+    <p class="lead">CachedSearch wraps generation rather than replacing your model. The verifier defaults to ImageReward, the scorer behind every number here; pass your own to override it.</p>
 
     <div class="col">
 <pre><span class="c"># pip install -r requirements.txt</span>
@@ -301,12 +365,12 @@ result = cached_search(pipe, prompt, n=8, tau=0.10)
 result.video          <span class="c"># genuine full-compute sample</span>
 result.seed           <span class="c"># the winning seed</span>
 result.total_seconds  <span class="c"># about 63% of full best-of-8</span></pre>
-      <p style="margin-top:20px;text-align:center"><a href="https://github.com/shreshthsaini/CachedSearch#use-it-on-your-model">Full adoption guide &rarr;</a></p>
+      <p style="text-align:center;margin-top:22px"><a href="https://github.com/shreshthsaini/CachedSearch#use-it-on-your-model">Full adoption guide &rarr;</a></p>
     </div>
 
-    <h2 style="margin-top:56px;font-size:26px">Calibrated operating points</h2>
+    <h2 style="margin-top:64px;font-size:26px">Calibrated operating points</h2>
     <p class="lead">The caching threshold is the one model-specific number. Fidelity tracks architecture family rather than parameter count, so calibrate once per family and reuse it across sizes.</p>
-    <div class="tablewrap col">
+    <div class="tbl col">
       <table>
         <tr><th>Model</th><th class="n">Params</th><th>Family</th><th class="n">&tau;</th><th class="n">Capture</th><th class="n">Speedup</th></tr>
         <tr><td>Wan2.1-T2V-1.3B</td><td class="n">1.3B</td><td>Wan</td><td class="n">0.20</td><td class="n">88.3%</td><td class="n">2.41&times;</td></tr>
@@ -323,7 +387,7 @@ result.total_seconds  <span class="c"># about 63% of full best-of-8</span></pre>
 
 <section id="cite">
   <div class="wrap">
-    <span class="kicker">Citation</span>
+    <span class="eyebrow">Citation</span>
     <h2>Cite this work</h2>
     <div class="col">
 <pre>@article{saini2026cachedsearch,
@@ -334,7 +398,7 @@ result.total_seconds  <span class="c"># about 63% of full best-of-8</span></pre>
   year    = {2026},
   note    = {arXiv id to be added at release}
 }</pre>
-      <p style="margin-top:30px;text-align:center;color:var(--soft);font-size:15.5px">This work stands on open releases from the video generation community. We thank the teams behind
+      <p style="margin-top:28px;text-align:center;font-size:15.5px;color:var(--dim)">This work stands on open releases from the video generation community. We thank the teams behind
         <a href="https://github.com/Wan-Video/Wan2.1">Wan2.1</a>,
         <a href="https://github.com/THUDM/CogVideo">CogVideoX</a>,
         <a href="https://github.com/Tencent/HunyuanVideo">HunyuanVideo</a>,
@@ -352,12 +416,50 @@ result.total_seconds  <span class="c"># about 63% of full best-of-8</span></pre>
 
 <footer>
   <div class="wrap">
-    <a href="https://github.com/shreshthsaini/CachedSearch">Code</a>&middot;
-    <a href="https://shreshthsaini.github.io/blogs.html">Blog</a>&middot;
+    <a href="https://github.com/shreshthsaini/CachedSearch">Code</a>
+    <a href="https://shreshthsaini.github.io/blogs/cachedsearch.html">Blog</a>
     <a href="https://shreshthsaini.github.io/">Shreshth Saini</a>
-    <p style="margin-top:14px;font-size:13px">&copy; 2026 the authors</p>
+    <p style="margin-top:16px;font-size:13px">&copy; 2026 the authors</p>
   </div>
 </footer>
+
+<script>
+(function(){
+  // Measured operating points (Wan2.1-T2V-1.3B, tau = 0.10).
+  // cost_full = N * 68.3 s; cost_ours = N * 34.7 s + 68.3 s (one full commit).
+  // Capture values are measured, not interpolated.
+  var CF = 68.3, CC = 34.7;
+  var CAP = {2: "89.9%", 4: "89.6%", 8: "94.7%", 16: "95.7%"};
+  var NOTE = {
+    2: "At N = 2 the mandatory full-compute delivery eats the saving: this is the break-even width.",
+    4: "At N = 4 the commit is amortized over four cheap drafts.",
+    8: "At N = 8, recommit costs 8 cached drafts plus one full rollout.",
+    16: "Capture rises with width: misses land on near-equal candidates, and wide pools hold more of those."
+  };
+  var seg = document.getElementById('seg');
+  if (!seg) return;
+  function fmt(x){ return Math.round(x) + " s"; }
+  function set(n){
+    var full = n * CF, ours = n * CC + CF, ratio = ours / full;
+    document.getElementById('bar-full').style.width = "100%";
+    document.getElementById('bar-ours').style.width = (ratio * 100).toFixed(1) + "%";
+    document.getElementById('val-full').textContent = fmt(full);
+    document.getElementById('val-ours').textContent = fmt(ours);
+    document.getElementById('r-cost').textContent = Math.round(ratio * 100) + "%";
+    document.getElementById('r-cap').textContent = CAP[n];
+    document.getElementById('r-save').textContent = fmt(full - ours);
+    document.getElementById('r-note').textContent = NOTE[n];
+    Array.prototype.forEach.call(seg.querySelectorAll('button'), function(b){
+      b.setAttribute('aria-pressed', b.dataset.n === String(n) ? 'true' : 'false');
+    });
+  }
+  seg.addEventListener('click', function(e){
+    var b = e.target.closest('button');
+    if (b) set(parseInt(b.dataset.n, 10));
+  });
+  set(8);
+})();
+</script>
 
 </body>
 </html>

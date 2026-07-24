@@ -12,7 +12,8 @@
 <p align="center">
   Paper (arXiv, coming soon) &nbsp;·&nbsp;
   <a href="https://shreshthsaini.github.io/CachedSearch/">Project page</a>
-  &nbsp;·&nbsp; Blog (coming soon)
+  &nbsp;·&nbsp;
+  <a href="https://shreshthsaini.github.io/blogs/cachedsearch.html">Blog</a>
 </p>
 
 <p align="center">
