@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software or its findings, please cite the paper."
+title: "CachedSearch: Training-Free Cached Exploration for Test-Time Search in Video Diffusion"
+authors:
+  - family-names: Saini
+    given-names: Shreshth
+  - family-names: Birkbeck
+    given-names: Neil
+  - family-names: Wang
+    given-names: Yilin
+  - family-names: Adsumilli
+    given-names: Balu
+  - family-names: Bovik
+    given-names: Alan C.
+year: 2026
+license: MIT
+repository-code: "https://github.com/shreshthsaini/CachedSearch"

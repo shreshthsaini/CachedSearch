@@ -16,6 +16,13 @@
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license">
+  <img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/training--free-yes-brightgreen.svg" alt="Training-free">
+  <img src="https://img.shields.io/badge/models-Wan%20%7C%20CogVideoX%20%7C%20Hunyuan%20%7C%20LTX-lightgrey.svg" alt="Supported models">
+</p>
+
+<p align="center">
   <img src="assets/fig1_overview.png" alt="CachedSearch overview" width="900">
 </p>
 
