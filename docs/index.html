@@ -94,7 +94,11 @@
   p:last-child { margin-bottom: 0; }
   a { color: #2563eb; }
 
-  .split { display: grid; grid-template-columns: 1.05fr .95fr; gap: 38px; align-items: center; }
+  .split { display: grid; grid-template-columns: 1.05fr .95fr; gap: 46px; align-items: center; }
+  .split figure { margin-left: 6px; }
+  .qs { display: flex; flex-direction: column; gap: 26px; }
+  .qs pre { margin-top: 4px; }
+  figure.mid { max-width: 640px; margin: 22px 0 8px; }
   @media (max-width: 860px) { .split { grid-template-columns: 1fr; gap: 22px; } }
 
   figure img { width: 100%; height: auto; display: block; border-radius: 10px; border: 1px solid var(--paper-line); }
@@ -220,25 +224,21 @@
       <h2>Three findings, measured on VBench and VBench-2.0</h2>
 
       <h3>1. Rankings survive caching</h3>
-      <div class="split">
-        <p>Generate every candidate twice, once at full compute and once cached, from identical seeds. Median per-prompt Spearman correlation between the two orderings is <strong>0.905</strong>, with <strong>72%</strong> top-1 agreement, replicated on the harder VBench-2.0 distribution.</p>
-        <figure>
-          <img src="assets/gif_twins.gif" alt="The same seed at full compute and under caching">
-          <figcaption>Same seed, full compute (left) against the cached draft (right) that the verifier ranks.</figcaption>
-        </figure>
-      </div>
+      <p class="narrow">Generate every candidate twice, once at full compute and once cached, from identical seeds. Median per-prompt Spearman correlation between the two orderings is <strong>0.905</strong>, with <strong>72%</strong> top-1 agreement, replicated on the harder VBench-2.0 distribution.</p>
+      <figure class="mid">
+        <img src="assets/gif_twins.gif" alt="The same seed at full compute and under caching">
+        <figcaption>Same seed, full compute (left) against the cached draft (right) that the verifier ranks.</figcaption>
+      </figure>
 
       <h3>2. When ranking breaks, it breaks cheaply</h3>
       <p class="narrow">Corruption concentrates on prompts whose candidates were nearly tied to begin with, exactly where choosing wrong costs least. Median regret is zero: most prompts lose nothing at all.</p>
 
       <h3>3. The trajectory matters, not the budget</h3>
-      <div class="split">
-        <p>The obvious alternative is fewer denoising steps per candidate. At a matched two-fold saving, truncation keeps <strong>72.6%</strong> of search's gain against caching's <strong>90.1%</strong>, with about six times the regret. A truncated rollout honestly samples a <em>different</em>, shorter-schedule distribution, so its scores rank its own outputs rather than the full-compute videos that commit will deliver.</p>
-        <figure>
-          <img src="assets/f16_hero.png" alt="Delivered reward versus compute budget">
-          <figcaption>Above break-even, cached exploration delivers more reward than full search at equal budget; truncation delivers less.</figcaption>
-        </figure>
-      </div>
+      <p class="narrow">The obvious alternative is fewer denoising steps per candidate. At a matched two-fold saving, truncation keeps <strong>72.6%</strong> of search's gain against caching's <strong>90.1%</strong>, with about six times the regret. A truncated rollout honestly samples a <em>different</em>, shorter-schedule distribution, so its scores rank its own outputs rather than the full-compute videos that commit will deliver.</p>
+      <figure class="mid">
+        <img src="assets/f16_hero.png" alt="Delivered reward versus compute budget">
+        <figcaption>Above break-even, cached exploration delivers more reward than full search at equal budget; truncation delivers less.</figcaption>
+      </figure>
 
       <h3>Any published cache works as the engine</h3>
       <p class="narrow">Every caching family we tested drops in unchanged and lands on one capture-versus-speedup frontier. Fidelity is set by how much compute you reuse, not by which mechanism reuses it.</p>
@@ -254,13 +254,11 @@
       </div>
 
       <h3>The honest edge</h3>
-      <div class="split">
-        <div class="callout">Keeping the cached draft instead of re-committing is cheaper still, but it dampens motion, and learned judges mildly <em>prefer</em> the dampened result. That is why commit is the default and why our keep-mode claims rest on optical flow and LPIPS rather than judge scores.</div>
-        <figure>
-          <img src="assets/gif_motion.gif" alt="Commit against keep at an aggressive threshold">
-          <figcaption>Commit (left) against keep (right) at an aggressive threshold.</figcaption>
-        </figure>
-      </div>
+      <div class="callout narrow">Keeping the cached draft instead of re-committing is cheaper still, but it dampens motion, and learned judges mildly <em>prefer</em> the dampened result. That is why commit is the default and why our keep-mode claims rest on optical flow and LPIPS rather than judge scores.</div>
+      <figure class="mid" style="margin-top:22px">
+        <img src="assets/gif_motion.gif" alt="Commit against keep at an aggressive threshold">
+        <figcaption>Commit (left) against keep (right) at an aggressive threshold.</figcaption>
+      </figure>
     </div>
   </section>
 
@@ -268,8 +266,8 @@
     <div class="wrap">
       <span class="kicker">Quickstart</span>
       <h2>Three lines in your search loop</h2>
-      <div class="split">
-        <div>
+      <div class="qs">
+        <div class="narrow">
           <p>CachedSearch wraps generation rather than replacing your model, so adoption changes your search loop and nothing else.</p>
           <p><code class="i">pipe</code> is any diffusers video pipeline. The verifier defaults to ImageReward averaged over eight frames, the scorer behind every number here; pass <code class="i">verifier=</code> to use your own. One number is model-specific, the caching threshold, and the repository ships a calibration script that measures it for a new architecture in about two GPU-hours.</p>
           <p><a href="https://github.com/shreshthsaini/CachedSearch#use-it-on-your-model">Full adoption guide &rarr;</a></p>
