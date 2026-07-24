@@ -49,7 +49,7 @@ count) is read from the measured jsonl records -- nothing hand-entered.
       results/b1_temporal/records_shard*.jsonl. Picks span the LPIPS range
       (min 0.021 / mean 0.142 / max 0.343 at tau=0.10, n=50).
 
-  fig_qual_models.pdf    one shared prompt (experiments/prompts_qual1.txt), full
+  fig_qual_models.pdf    one shared prompt, full
       vs cached (tau=0.10) at seed 0 on all six models; regenerated via the task
       spool into results/b1_gate_{qual13b,ltx_qual,qualwan22,cog5b_qual,
       hunyuan_qual,qual14b}/videos (2 videos + 1 jsonl each). Model names are

@@ -18,7 +18,7 @@ import numpy as np
 from scipy.stats import spearmanr
 
 RESULTS = os.environ.get("CACHEDSEARCH_RESULTS", "./results")
-PROMPTS = os.path.join(os.path.dirname(__file__), "..", "experiments", "prompts_gate50.txt")
+PROMPTS = os.environ.get("CACHEDSEARCH_PROMPTS", "prompts.txt")
 
 # --- keyword bucketing (priority order matters; first hit wins) -------------
 CATEGORIES = [
