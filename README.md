@@ -199,8 +199,9 @@ At similar exploration cost, caching retains 90.1% of search gain, while 25-step
 ## Reproduce the paper
 
 ```bash
-# one gate-grid arm (50 prompts x 8 seeds, full and cached rollouts)
-python code/experiments/b1_gate.py --variants full,cached --tau 0.10 --tag v0
+# one experiment arm (your prompt list x 8 seeds, full and cached rollouts)
+python code/experiments/b1_gate.py --prompts your_prompts.txt \
+    --variants full,cached --tau 0.10 --tag v0
 
 # regenerate every figure from the score records
 python code/paper_figs/make_figs.py
@@ -218,14 +219,9 @@ examples/            runnable scripts: search on Wan, calibrate a new model
 code/videogen1/      caching wrapper and generation helpers
 code/experiments/    experiment runners used for the paper
 code/paper_figs/     figure and table generation from score records
-data/                gate-grid prompts and seeds
 results/            per-candidate score records (added on release)
 assets/              logo and figures
 ```
-
-## Data
-
-[`data/prompts_gate50.csv`](data/prompts_gate50.csv) contains all 50 gate prompts crossed with seeds 0 through 7. It has 400 rows with the columns `prompt_id`, `seed`, and `prompt`. Official VBench and VBench-2.0 prompt lists are linked in [`data/README.md`](data/README.md) and are not redistributed.
 
 ## Acknowledgments
 

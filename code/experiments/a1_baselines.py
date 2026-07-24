@@ -2,7 +2,7 @@
 
 Reproduce published training-free caching methods under ONE protocol (identical to
 the B1 gate: Wan2.1-T2V-1.3B, 480x832, 81 frames, 50 UniPC steps, ImageReward
-verifier, prompts_gate50.txt x 8 seeds). For a given --method we generate ONLY the
+verifier, your_prompts.txt x 8 seeds). For a given --method we generate ONLY the
 method (cached-equivalent) variant; full-compute references are REUSED from
 results/b1_gate_v0/ (variant=="full"), which ran the exact same protocol.
 
@@ -49,7 +49,7 @@ def build_wrapper(pipe, method, args):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--method", required=True, choices=METHODS)
-    ap.add_argument("--prompts", default=os.path.join(os.path.dirname(__file__), "prompts_gate50.txt"))
+    ap.add_argument("--prompts", default=os.environ.get("CACHEDSEARCH_PROMPTS", "prompts.txt"))
     ap.add_argument("--shard", type=int, default=0)
     ap.add_argument("--num-shards", type=int, default=5)
     ap.add_argument("--seeds", type=int, default=8)

@@ -49,7 +49,7 @@ Output jsonl per video: {path, file, hash, prompt, seed/variant (or tag/arm),
 index_sim, index_margin, imagereward, vqascore, videoscore_visual,
 videoscore_temporal, videoscore_dynamic, videoscore_alignment,
 videoscore_factual, videoscore_avg}.
-E1 temporal dir works identically with --prompts experiments/prompts_gate50.txt.
+E1 temporal dir works identically with --prompts experiments/your_prompts.txt.
 """
 from __future__ import annotations
 import argparse, glob, json, os, sys
@@ -159,7 +159,7 @@ def cmd_index(args):
         # Groups <-> prompts is (near-)bijective when generation had no shard
         # restarts: globally optimal 1-1 assignment resolves near-duplicate
         # prompts that per-group argmax collides on (e.g. the two jellyfish
-        # prompts in prompts_gate50.txt). Requires #groups <= #prompts.
+        # prompts in your_prompts.txt). Requires #groups <= #prompts.
         from scipy.optimize import linear_sum_assignment
         gi, pi = linear_sum_assignment(-S)
         assign = dict(zip(gi.tolist(), pi.tolist()))
@@ -462,7 +462,7 @@ def main():
     p.add_argument("--videos-dir", required=True)
     p.add_argument("--prompts", required=True,
                    help="candidate prompt list (experiments/prompts_vbench946.txt "
-                        "for E2, experiments/prompts_gate50.txt for E1)")
+                        "for E2, experiments/your_prompts.txt for E1)")
     p.add_argument("--index-videos", type=int, default=4,
                    help="videos sampled per hash group")
     p.add_argument("--index-frames", type=int, default=4, help="frames per video")

@@ -25,7 +25,7 @@ from videogen1.gen_hunyuan import (load_pipe_hunyuan, generate_hunyuan,
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--prompts", default=os.path.join(os.path.dirname(__file__), "prompts_gate50.txt"))
+    ap.add_argument("--prompts", default=os.environ.get("CACHEDSEARCH_PROMPTS", "prompts.txt"))
     ap.add_argument("--shard", type=int, default=0)
     ap.add_argument("--num-shards", type=int, default=1)
     ap.add_argument("--seeds", type=int, default=8)
