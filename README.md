@@ -27,14 +27,6 @@
   <img src="assets/fig1_overview.png" alt="CachedSearch overview" width="900">
 </p>
 
-<p align="center">
-  <img src="assets/gif_pipeline.gif" alt="Eight cached drafts, the verifier's pick, and the full-compute commit" width="920">
-</p>
-
-<p align="center">
-  <em>Explore all N candidates under caching, score the cheap drafts, re-generate only the winner at full compute.</em>
-</p>
-
 - Ranking survives caching: median Spearman rho is 0.905, with 72% top-1 agreement on VBench.
 - Ranking failures are self-limiting because they concentrate where candidates are nearly tied.
 - Explore cheap plus commit full retains 94.7% of the best-of-8 gain at 63% of the cost.
