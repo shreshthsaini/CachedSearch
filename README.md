@@ -49,6 +49,25 @@ winner = seeds[argmax(verifier(video, prompt) for video in drafts)]
 return full_generate(prompt, winner)
 ```
 
+## See it
+
+**What search buys.** Same prompt, two seeds: an unlucky candidate and the one
+CachedSearch selected. Both are delivered at full compute; search only chooses
+between them.
+
+<p align="center"><img src="assets/gif_search.gif" alt="unlucky sample vs CachedSearch pick" width="720"></p>
+
+**Why the ranking survives.** The same seed at full compute and under caching.
+The cached draft is roughly twice as cheap and is what the verifier ranks; the
+content it ranks on is preserved.
+
+<p align="center"><img src="assets/gif_twins.gif" alt="full compute vs cached draft, same seed" width="720"></p>
+
+**The honest edge.** At an aggressive threshold, keeping the cached draft
+instead of recommitting dampens motion. This is why commit is the default.
+
+<p align="center"><img src="assets/gif_motion.gif" alt="commit vs keep at an aggressive threshold" width="720"></p>
+
 ## Use it on your model
 
 CachedSearch is a wrapper around generation, not a new model. If you already
