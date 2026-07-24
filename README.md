@@ -42,6 +42,82 @@ winner = seeds[argmax(verifier(video, prompt) for video in drafts)]
 return full_generate(prompt, winner)
 ```
 
+## Use it on your model
+
+CachedSearch is a wrapper around generation, not a new model. If you already
+run best-of-N search (or you generate a few candidates and pick one by hand),
+you can adopt it in three steps.
+
+**1. Install and import.**
+
+```bash
+pip install -r requirements.txt
+```
+
+```python
+from cachedsearch import cached_search
+```
+
+**2. Replace your search loop.** Wherever you generate N candidates and keep
+the best, call `cached_search` instead. It takes any diffusers video pipeline
+and any verifier you already trust.
+
+```python
+result = cached_search(
+    pipe,                       # your diffusers video pipeline
+    "a red fox running through deep snow",
+    verifier=my_scorer,         # (frames, prompt) -> float, higher is better
+    n=8,                        # search width
+    tau=0.10,                   # caching threshold (see step 3 for other models)
+    mode="commit",              # regenerate the winner at full compute
+)
+
+result.video          # delivered video: a genuine full-compute sample
+result.seed           # the seed that won
+result.total_seconds  # about 63% of what full best-of-8 costs
+```
+
+Internally this generates all N candidates with caching on, scores the cheap
+drafts, then regenerates only the winning seed with caching off. Because the
+sampler is seed-deterministic, the delivered video is bit-identical to what
+full-compute search would have returned whenever both pick the same seed:
+caching changes which candidate you select, never the quality of what ships.
+
+A runnable end-to-end script is in [`examples/run_wan.py`](examples/run_wan.py).
+
+**3. Calibrate `tau` if your model is not Wan.** The threshold is the one
+model-specific number. Fidelity tracks architecture family rather than
+parameter count, so calibrate once per family and reuse it across sizes.
+
+```bash
+python examples/calibrate_new_model.py --model <hf-id> --prompts your_prompts.txt
+```
+
+This runs the paper's protocol in miniature (25 prompts, both compute levels)
+in roughly two GPU-hours and prints the largest threshold that still retains
+90% of search's gain. Starting points we measured: Wan family 0.10,
+CogVideoX 0.05, HunyuanVideo 0.05, LTX-Video 0.02. Do not copy a threshold
+across families; an over-driven threshold silently degrades selection.
+
+### Choosing the settings
+
+| Situation | Setting |
+|---|---|
+| Default, quality matters | `mode="commit"`, `tau=0.10` (Wan) |
+| Fidelity first, some speed given up | swap in a milder engine (TeaCache) or lower `tau` |
+| Maximum savings, motion not critical | `mode="keep"` at `tau<=0.10`; expect mild motion dampening |
+| Fixed budget, want more quality | keep the budget, raise `n`: capture rises with width |
+| New architecture | calibrate first, never copy constants |
+
+### Does it compose with what I already use?
+
+Yes. CachedSearch only changes how exploration rollouts are computed, so it
+sits underneath the rest of the stack: any published training-free cache works
+as the engine (we measured PAB, CFG-Cache, TeaCache, and EasyCache on one
+frontier), any verifier works, and pruning-based search composes
+multiplicatively (we measured 3.11x exploration speedup when stacked with
+mid-trajectory pruning).
+
 ## Results at a glance
 
 Each row uses the listed cache as the exploration engine at search width 8. Cost includes the full-compute commit.
@@ -60,43 +136,31 @@ Each row uses the listed cache as the exploration engine at search width 8. Cost
 
 At similar exploration cost, caching retains 90.1% of search gain, while 25-step truncation retains 72.6%.
 
-## Quickstart
-
-Install the Python dependencies:
+## Reproduce the paper
 
 ```bash
-pip install -r requirements.txt
+# one gate-grid arm (50 prompts x 8 seeds, full and cached rollouts)
+python code/experiments/b1_gate.py --variants full,cached --tau 0.10 --tag v0
+
+# regenerate every figure from the score records
+python code/paper_figs/make_figs.py
+python code/paper_figs/make_fig_hero.py
 ```
 
-Run the 50-prompt gate experiment:
-
-```bash
-PYTHONPATH=code CACHEDSEARCH_RESULTS=./results python code/experiments/b1_gate.py \
-  --prompts code/experiments/prompts_gate50.txt \
-  --seeds 8 --steps 50 --tau 0.10 --tag gate50
-```
-
-Regenerate the main analysis figures from compatible result shards:
-
-```bash
-CACHEDSEARCH_RESULTS=./results CACHEDSEARCH_FIGURES=./assets \
-  python code/paper_figs/make_figs.py --out assets
-```
-
-A CUDA GPU is required for generation. The reference gate configuration used an NVIDIA GH200 with 96 GB of memory. Smaller GPUs may require model offloading or reduced spatial and temporal resolution.
+Generation needs a CUDA GPU with enough memory for your backbone (we used
+NVIDIA GH200). Set `CACHEDSEARCH_RESULTS` to choose where records are written.
 
 ## Repository layout
 
 ```text
-.
-├── assets/              Figures, logo, and the logo generator
-├── code/
-│   ├── experiments/     Generation, scoring, and analysis entry points
-│   ├── paper_figs/      Scripts that derive figures from result shards
-│   └── videogen1/       Cache wrappers and shared video generation utilities
-├── data/                The public gate prompt and seed grid
-├── LICENSE              MIT license
-└── requirements.txt     Unpinned Python dependencies
+cachedsearch/        the drop-in API (cached_search, calibrate_tau)
+examples/            runnable scripts: search on Wan, calibrate a new model
+code/videogen1/      caching wrapper and generation helpers
+code/experiments/    experiment runners used for the paper
+code/paper_figs/     figure and table generation from score records
+data/                gate-grid prompts and seeds
+results/            per-candidate score records (added on release)
+assets/              logo and figures
 ```
 
 ## Data
