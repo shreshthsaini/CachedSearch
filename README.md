@@ -113,29 +113,6 @@ We sincerely thank the authors and open-source teams whose models, acceleration 
   year    = {2026},
   note    = {arXiv id TBD}
 }
-
-@inproceedings{huang2023vbench,
-  title     = {VBench: Comprehensive Benchmark Suite for Video Generative Models},
-  author    = {Huang, Ziqi and He, Yinan and Yu, Jiashuo and Zhang, Fan and Si, Chenyang and Jiang, Yuming and Zhang, Yuanhan and Wu, Tianxing and Jin, Qingyang and Chanpaisit, Nattapol and Wang, Yaohui and Chen, Xinyuan and Wang, Limin and Lin, Dahua and Qiao, Yu and Liu, Ziwei},
-  booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
-  year      = {2024},
-  note      = {arXiv:2311.17982}
-}
-
-@article{zheng2025vbench2,
-  title   = {VBench-2.0: Advancing Video Generation Benchmark Suite for Intrinsic Faithfulness},
-  author  = {Zheng, Dian and Huang, Ziqi and Liu, Hongbo and Zou, Kai and He, Yinan and Zhang, Fan and Gu, Lulu and Zhang, Yuanhan and He, Jingwen and Zheng, Wei-Shi and Qiao, Yu and Liu, Ziwei},
-  journal = {arXiv preprint arXiv:2503.21755},
-  year    = {2025}
-}
-
-@inproceedings{xu2023imagereward,
-  title     = {ImageReward: Learning and Evaluating Human Preferences for Text-to-Image Generation},
-  author    = {Xu, Jiazheng and Liu, Xiao and Wu, Yuchen and Tong, Yuxuan and Li, Qinkai and Ding, Ming and Tang, Jie and Dong, Yuxiao},
-  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
-  year      = {2023},
-  note      = {arXiv:2304.05977}
-}
 ```
 
 ## License
