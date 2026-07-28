@@ -15,3 +15,25 @@ authors:
 year: 2026
 license: MIT
 repository-code: "https://github.com/shreshthsaini/CachedSearch"
+url: "https://arxiv.org/abs/2607.23159"
+identifiers:
+  - type: other
+    value: "arXiv:2607.23159"
+    description: "arXiv preprint"
+preferred-citation:
+  type: article
+  title: "CachedSearch: Training-Free Cached Exploration for Test-Time Search in Video Diffusion"
+  authors:
+    - family-names: Saini
+      given-names: Shreshth
+    - family-names: Birkbeck
+      given-names: Neil
+    - family-names: Wang
+      given-names: Yilin
+    - family-names: Adsumilli
+      given-names: Balu
+    - family-names: Bovik
+      given-names: Alan C.
+  year: 2026
+  journal: "arXiv preprint arXiv:2607.23159"
+  url: "https://arxiv.org/abs/2607.23159"

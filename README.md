@@ -12,7 +12,8 @@
 </p>
 
 <p align="center">
-  Paper (arXiv, coming soon) &nbsp;·&nbsp;
+  <a href="https://arxiv.org/abs/2607.23159">Paper (arXiv)</a>
+  &nbsp;·&nbsp;
   <a href="https://shreshthsaini.github.io/CachedSearch/">Project page</a>
   &nbsp;·&nbsp;
   <a href="https://shreshthsaini.github.io/blogs/cachedsearch.html">Blog</a>
@@ -235,10 +236,12 @@ We sincerely thank the authors and open-source teams whose models, acceleration 
 
 ```bibtex
 @article{saini2026cachedsearch,
-  title   = {CachedSearch: Training-Free Cached Exploration for Test-Time Search in Video Diffusion},
-  author  = {Saini, Shreshth and Birkbeck, Neil and Wang, Yilin and Adsumilli, Balu and Bovik, Alan C.},
-  year    = {2026},
-  note    = {arXiv id TBD}
+  title         = {CachedSearch: Training-Free Cached Exploration for Test-Time Search in Video Diffusion},
+  author        = {Saini, Shreshth and Birkbeck, Neil and Wang, Yilin and Adsumilli, Balu and Bovik, Alan C.},
+  year          = {2026},
+  eprint        = {2607.23159},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.AI}
 }
 ```
 
