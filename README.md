@@ -199,7 +199,9 @@ Each row uses the listed cache as the exploration engine at search width 8. Cost
   <img src="assets/f16_hero.png" alt="Delivered reward versus search budget" width="850">
 </p>
 
-At similar exploration cost, caching retains 90.1% of search gain, while 25-step truncation retains 72.6%.
+At similar exploration cost, caching retains 90.1% of search gain, while 25-step truncation retains 72.6%. Drafting at half resolution is cheaper still (2.33x) and retains nothing: -0.8% capture, no better than picking at random, because changing the resolution changes the shape of the latent and the seed no longer indexes the same sample. Cheap exploration has to stay on the trajectory that commit will deliver.
+
+The result does not depend on the verifier. Rescoring the same rollouts with VQAScore gives 0.810 rank correlation and 80.7% capture, against 0.905 and 90.2% for ImageReward. On full-compute rollouts, where no caching is involved, those two verifiers agree with each other at only 0.548, so caching perturbs the ranking less than the choice of verifier does.
 
 ## Reproduce the paper
 

@@ -315,10 +315,11 @@ footer a:hover{color:var(--hot)}
         <span class="num">Finding 03</span>
         <h3>The trajectory matters, not the budget</h3>
         <p>The obvious alternative is fewer denoising steps per candidate. At a matched two-fold saving it does far worse, because a truncated rollout honestly samples a <em>different</em>, shorter-schedule distribution: its scores rank its own outputs, not the full-compute videos that commit will deliver. Caching perturbs the same seed-matched trajectory, which is exactly what search needs.</p>
+        <p>Drafting at half resolution is the sharper version of the same test, and it fails completely. Changing the resolution changes the shape of the latent, so a seed no longer indexes a perturbed version of the same sample: it indexes a different one. Those drafts are the cheapest of the three and carry no usable ranking signal at all.</p>
         <div class="stats">
           <div><span>90.1%</span><small>capture, caching</small></div>
           <div><span>72.6%</span><small>capture, truncation</small></div>
-          <div><span>6&times;</span><small>more regret from truncation</small></div>
+          <div><span>&minus;0.8%</span><small>capture, half-resolution drafts</small></div>
         </div>
         <figure><img loading="lazy" src="assets/f16_hero.png" alt="Delivered reward versus compute budget">
           <figcaption>Above break-even, cached exploration delivers more reward than full search at equal budget; truncation delivers less.</figcaption></figure>
