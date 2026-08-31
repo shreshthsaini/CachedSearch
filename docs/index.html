@@ -3,465 +3,1268 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CachedSearch &middot; Training-Free Cached Exploration for Test-Time Search in Video Diffusion</title>
-<meta name="description" content="Explore every candidate under caching, commit only the winner at full compute: 94.7% of best-of-8's reward gain at 63% of its cost.">
+<meta name="description" content="Explore every candidate under caching, commit only the winner at full compute: 94.7% of best-of-8 reward gain at 63% of its cost.">
 <meta property="og:title" content="CachedSearch: Training-Free Cached Exploration for Test-Time Search in Video Diffusion">
 <meta property="og:description" content="Candidate rankings survive aggressive caching, so search can explore cheap and commit full.">
 <meta property="og:image" content="https://shreshthsaini.github.io/CachedSearch/assets/fig1_overview.png">
 <meta name="twitter:card" content="summary_large_image">
-<style>
-:root{
-  --ink:#0e1116; --ink-2:#1c222c; --paper:#f6f4ef; --paper-2:#fffefb;
-  --text:#3a4150; --dim:#79808f; --rule:#e2ded4;
-  --hot:#ff5c39;      /* signature accent */
-  --cool:#0d9488;     /* measured / positive */
-  --serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
-  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
-  --mono:'SF Mono',ui-monospace,Menlo,Monaco,'Fira Code',monospace;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{background:var(--paper);color:var(--text);font-family:var(--sans);font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased}
-.wrap{max-width:1160px;margin:0 auto;padding:0 32px}
-.col{max-width:820px;margin:0 auto}
-em{font-style:italic}
-
-/* ---------- sticky rail ---------- */
-nav{position:sticky;top:0;z-index:50;background:rgba(246,244,239,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--rule)}
-nav .inner{max-width:1160px;margin:0 auto;padding:0 32px;height:56px;display:flex;align-items:center;justify-content:space-between;gap:20px}
-nav .mark{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--ink);letter-spacing:-.02em;text-decoration:none;white-space:nowrap}
-nav .mark span{color:var(--hot)}
-nav .links{display:flex;gap:22px;font-size:14px}
-nav .links a{color:var(--dim);text-decoration:none}
-nav .links a:hover{color:var(--ink)}
-@media(max-width:720px){nav .links{display:none}}
-
-/* ---------- hero ---------- */
-.hero{padding:76px 0 64px;text-align:center;position:relative;overflow:hidden}
-.hero::before{content:"";position:absolute;left:50%;top:-180px;width:1100px;height:620px;transform:translateX(-50%);
-  background:radial-gradient(closest-side, rgba(255,92,57,.10), transparent 72%);pointer-events:none}
-.hero>*{position:relative}
-.kicker{display:inline-flex;gap:10px;align-items:center;font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--hot);text-transform:uppercase}
-.kicker::before,.kicker::after{content:"";width:26px;height:1px;background:currentColor;opacity:.5}
-h1{font-family:var(--serif);font-weight:600;color:var(--ink);font-size:clamp(28px,3.9vw,44px);line-height:1.08;letter-spacing:-.02em;margin:20px auto 0;max-width:26ch;text-wrap:balance}
-h1 .u{background:linear-gradient(transparent 62%, rgba(255,92,57,.28) 62%)}
-.sub{font-size:20px;color:var(--dim);max-width:58ch;margin:22px auto 0;line-height:1.55}
-.authors{margin-top:34px;font-size:16.5px;color:var(--ink);line-height:2.1}
-.authors a{color:var(--ink);text-decoration:none;border-bottom:1.5px solid rgba(255,92,57,.35)}
-.authors a:hover{color:var(--hot)}
-.authors sup{font-size:11px;color:var(--dim)}
-.affil{font-size:14px;color:var(--dim);margin-top:10px}
-.fnote{font-size:12.5px;color:var(--dim);margin-top:8px}
-.cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:34px}
-.btn{display:inline-flex;align-items:center;gap:9px;padding:12px 24px;border-radius:6px;font-size:15px;font-weight:640;text-decoration:none;border:1px solid var(--ink);color:var(--ink);background:transparent;transition:.15s}
-.btn:hover{background:var(--ink);color:var(--paper)}
-.btn.solid{background:var(--ink);color:var(--paper)}
-.btn.solid:hover{background:var(--hot);border-color:var(--hot)}
-.btn.off{opacity:.35;pointer-events:none}
-.btn svg{width:16px;height:16px;fill:currentColor}
-
-/* ---------- pipeline animation: PERMANENT hero element, keep on every revision ---------- */
-.pipe{margin:62px auto 0;max-width:760px;background:var(--paper-2);border:1px solid var(--rule);border-radius:14px;padding:26px 24px 20px}
-.pipe .row{display:flex;align-items:center;justify-content:center;gap:22px;flex-wrap:wrap}
-.drafts{display:flex;gap:7px}
-.d{width:26px;height:34px;border-radius:4px;background:#dfe3ea;position:relative;animation:draft 4.2s infinite}
-.d:nth-child(2){animation-delay:.12s}.d:nth-child(3){animation-delay:.24s}.d:nth-child(4){animation-delay:.36s}
-.d:nth-child(5){animation-delay:.48s}.d:nth-child(6){animation-delay:.6s}.d:nth-child(7){animation-delay:.72s}
-.d:nth-child(8){animation-delay:.84s}
-.d.win{animation:win 4.2s infinite}
-@keyframes draft{0%,12%{opacity:.25}22%,70%{opacity:.75}100%{opacity:.25}}
-@keyframes win{0%,12%{opacity:.25;background:#dfe3ea}22%,58%{opacity:.85;background:#dfe3ea}
-  66%,92%{opacity:1;background:var(--hot);box-shadow:0 0 0 3px rgba(255,92,57,.22)}100%{opacity:.25;background:#dfe3ea}}
-.arrow{color:var(--dim);font-size:19px;margin-bottom:22px}  /* center on the block row */
-.stage{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);text-align:center;margin-top:9px}
-.final{width:52px;height:34px;border-radius:4px;background:var(--ink);position:relative;animation:final 4.2s infinite}
-@keyframes final{0%,66%{opacity:.12}76%,94%{opacity:1}100%{opacity:.12}}
-.pipe .legend{text-align:center;font-size:14px;color:var(--dim);margin-top:16px;border-top:1px solid var(--rule);padding-top:14px}
-
-/* ---------- sections ---------- */
-section{padding:82px 0;border-top:1px solid var(--rule)}
-.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--hot);text-align:center;display:block}
-h2{font-family:var(--serif);font-weight:600;font-size:clamp(27px,3.2vw,36px);color:var(--ink);letter-spacing:-.015em;text-align:center;margin:12px auto 16px;max-width:24ch}
-.lead{font-size:18.5px;color:var(--dim);text-align:center;max-width:72ch;margin:0 auto 40px}
-h3{font-size:19px;font-weight:700;color:var(--ink);margin-bottom:10px}
-p{margin-bottom:16px}p:last-child{margin-bottom:0}
-a{color:var(--hot)}
-
-/* ---------- budget explorer ---------- */
-.explorer{background:var(--ink);color:#e9ecf2;border-radius:18px;padding:36px 34px 30px;max-width:960px;margin:0 auto}
-.explorer h3{color:#fff;text-align:center;font-size:17px;margin-bottom:6px}
-.explorer .hint{text-align:center;color:#98a1b3;font-size:14px;margin-bottom:26px}
-.seg{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:30px}
-.seg button{font-family:var(--mono);font-size:14px;padding:9px 18px;border-radius:999px;border:1px solid rgba(255,255,255,.18);background:transparent;color:#cbd2df;cursor:pointer;transition:.14s}
-.seg button:hover{border-color:var(--hot);color:#fff}
-.seg button[aria-pressed="true"]{background:var(--hot);border-color:var(--hot);color:#fff}
-.bars{display:grid;gap:18px;max-width:720px;margin:0 auto}
-.bar-row{display:grid;grid-template-columns:140px 1fr auto;align-items:center;gap:16px}
-.bar-row .name{font-size:14.5px;color:#aeb6c6}
-.track{height:34px;background:rgba(255,255,255,.06);border-radius:6px;overflow:hidden}
-.fill{height:100%;border-radius:6px;transition:width .5s cubic-bezier(.4,0,.2,1)}
-.fill.full{background:linear-gradient(90deg,#4b5566,#5f6a7d)}
-.fill.ours{background:linear-gradient(90deg,var(--hot),#ff8a63)}
-.bar-row .val{font-family:var(--mono);font-size:14px;color:#fff;min-width:74px;text-align:right}
-.readout{display:flex;justify-content:center;gap:46px;flex-wrap:wrap;margin-top:30px;padding-top:24px;border-top:1px solid rgba(255,255,255,.1)}
-.readout div{text-align:center}
-.readout .v{font-family:var(--serif);font-size:30px;color:#fff;line-height:1.1}
-.readout .v.hot{color:var(--hot)}
-.readout .k{font-size:12.5px;color:#98a1b3;margin-top:5px}
-.explorer .foot{text-align:center;font-size:12.5px;color:#7d8698;margin-top:22px}
-
-/* ---------- gallery ---------- */
-.gal{display:grid;grid-template-columns:1fr;gap:24px;max-width:920px;margin:0 auto}
-@media(min-width:1200px){.gal.pair{grid-template-columns:1fr 1fr;max-width:none}}
-.shot{background:var(--paper-2);border:1px solid var(--rule);border-radius:12px;overflow:hidden;transition:.2s}
-.shot:hover{box-shadow:0 14px 34px rgba(14,17,22,.09);transform:translateY(-2px)}
-.shot img{width:100%;display:block}
-.shot .meta{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:13px 18px 15px;border-top:1px solid var(--rule)}
-.shot .meta b{font-size:15px;color:var(--ink);font-weight:640}
-.shot .meta .g{font-family:var(--mono);font-size:13.5px;color:var(--cool);white-space:nowrap}
-
-/* ---------- findings ---------- */
-.finds{display:grid;gap:26px;max-width:920px;margin:0 auto}
-.find{background:var(--paper-2);border:1px solid var(--rule);border-radius:14px;padding:30px 32px}
-.find .num{font-family:var(--mono);font-size:12px;color:var(--hot);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;display:block}
-.find p{font-size:16.5px}
-.stats{display:flex;flex-wrap:wrap;gap:36px;margin-top:20px;padding-top:18px;border-top:1px solid var(--rule)}
-.stats span{display:block;font-family:var(--serif);font-size:27px;color:var(--ink);line-height:1.05}
-.stats small{font-size:12.5px;color:var(--dim)}
-figure{margin-top:22px}
-figure img{width:100%;display:block;border-radius:10px;border:1px solid var(--rule);background:#fff}
-figcaption{font-size:13.5px;color:var(--dim);margin-top:11px;text-align:center;line-height:1.5}
-
-/* ---------- table + code ---------- */
-.tbl{overflow-x:auto;background:var(--paper-2);border:1px solid var(--rule);border-radius:12px}
-table{border-collapse:collapse;width:100%;font-size:15px}
-th,td{padding:13px 18px;text-align:left;border-bottom:1px solid var(--rule)}
-tr:last-child td{border-bottom:0}
-th{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);font-weight:600}
-td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
-tr.us td{background:rgba(255,92,57,.07);font-weight:640;color:var(--ink)}
-pre{background:var(--ink);color:#e7ecf7;border-radius:12px;padding:24px 26px;overflow-x:auto;font-family:var(--mono);font-size:13.5px;line-height:1.72}
-pre .c{color:#7f899b}pre .k{color:#7fe3c8}
-code.i{font-family:var(--mono);font-size:.88em;background:var(--paper-2);border:1px solid var(--rule);border-radius:5px;padding:1px 6px}
-.note{background:var(--paper-2);border:1px solid var(--rule);border-left:3px solid var(--cool);border-radius:0 12px 12px 0;padding:20px 24px;font-size:16px}
-
-footer{background:var(--ink);color:#8e96a6;padding:46px 0;text-align:center;font-size:14px}
-footer a{color:#dfe3ea;text-decoration:none;margin:0 12px}
-footer a:hover{color:var(--hot)}
-</style>
+<style>*{box-sizing:border-box}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
+<title>CachedSearch</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Source+Sans+3:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#faf9f6; --card:#fff; --ink:#14161a; --text:#474d57; --dim:#8a9099;
+  --rule:#e6e2d9; --hot:#ff5c39; --cool:#0d9488; --bad:#c2553c; --stage:#0b0c0e;
+  --nodefill:#dcd7cb; --linefaint:#b9b3a6;
+  --serif:'Source Serif 4',Georgia,serif;
+  --sans:'Source Sans 3',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--text);font-family:var(--sans);
+  font-size:17px;line-height:1.68;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+.wide{max-width:1560px;margin:0 auto;padding:0 24px}
+a{color:var(--hot);text-decoration:none} a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--hot);outline-offset:3px}
 
-<nav>
-  <div class="inner">
-    <a class="mark" href="#top">cached<span>·</span>search</a>
-    <div class="links">
-      <a href="#how">How it works</a>
-      <a href="#explore">Cost explorer</a>
-      <a href="#gallery">Gallery</a>
-      <a href="#findings">Findings</a>
-      <a href="#start">Quickstart</a>
-      <a href="https://shreshthsaini.github.io/blogs/cachedsearch.html">Blog</a>
-      <a href="https://github.com/shreshthsaini/CachedSearch">GitHub</a>
-    </div>
+header{text-align:center;padding:58px 0 26px}
+h1{font-family:var(--serif);font-weight:700;color:var(--ink);margin:0;
+  font-size:clamp(34px,5vw,58px);line-height:1.06;letter-spacing:-.022em}
+.sub{font-family:var(--serif);font-style:italic;font-size:clamp(16px,1.9vw,21px);
+  color:var(--dim);margin:13px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.authors{margin:22px 0 0;font-size:16.5px;color:var(--ink)}
+.affil{margin:4px 0 0;font-size:14.5px;color:var(--dim)}
+.logos{display:flex;gap:30px;justify-content:center;align-items:center;flex-wrap:wrap;
+  margin:20px 0 0;opacity:.82}
+.logos img{height:30px;width:auto;display:block}
+.logos img.tall{height:34px}
+.links{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin:24px 0 0}
+.links a{padding:8px 18px;border:1px solid var(--rule);border-radius:999px;
+  background:var(--card);color:var(--ink);font-size:14.5px;font-weight:500}
+.links a:hover{border-color:var(--hot);color:var(--hot);text-decoration:none}
+
+section{padding:52px 0}
+.band{background:var(--stage);padding:44px 0 38px}
+h2{font-family:var(--serif);font-weight:600;color:var(--ink);font-size:31px;
+  margin:0 0 10px;letter-spacing:-.012em;text-wrap:balance}
+.band h2{color:#f4f1e9}
+.lead{max-width:74ch;margin:0 0 26px;font-size:17.5px}
+.band .lead{color:#a8aeb8}
+.center{text-align:center} .center .lead{margin-left:auto;margin-right:auto}
+h3{font-family:var(--serif);font-weight:600;color:var(--ink);font-size:21px;margin:0 0 6px}
+p{margin:0 0 15px}
+.two{display:grid;gap:38px;grid-template-columns:1fr;align-items:start}
+@media(min-width:900px){.two{grid-template-columns:.92fr 1.08fr}}
+.two p:last-child{margin-bottom:0}
+
+.cmp{margin:0 0 28px}
+.stage{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--stage);line-height:0}
+.stage video{width:100%;display:block;aspect-ratio:16/9;object-fit:cover}
+figcaption{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding-top:10px}
+.side{display:flex;align-items:baseline;gap:9px}
+.who{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--dim)}
+.who.ours{color:var(--hot)}
+.band .who{color:#8f96a1} .band .who.ours{color:#ff8a6b}
+.s{font-family:var(--mono);font-size:14.5px;font-variant-numeric:tabular-nums}
+.s.bad{color:#b5563c} .s.good{color:var(--cool)}
+.band .s.bad{color:#ff9c86} .band .s.good{color:#5fe3d3}
+.mid{grid-column:1/-1;margin-top:8px;text-align:center}
+.pr{display:block;font-family:var(--serif);font-style:italic;font-size:16.5px;color:var(--ink)}
+.det{display:block;font-family:var(--mono);font-size:11.5px;color:var(--dim);margin-top:3px}
+.band .pr{color:#eceae4} .band .det{color:#8f96a1}
+.grid-wrap{display:grid;grid-template-columns:1fr;gap:22px;margin-bottom:34px}
+@media(min-width:1000px){.grid-wrap{grid-template-columns:1fr 1fr}}
+@media(min-width:1420px){.grid-wrap{grid-template-columns:repeat(3,1fr)}}
+.cmp.grid .pr{font-size:14px} .cmp.grid .det{font-size:10.5px}
+.cmp.grid .who{font-size:10px} .cmp.grid .s{font-size:12.5px}
+.gh{color:#f4f1e9;font-size:19px;margin:26px 0 14px;display:flex;gap:12px;align-items:baseline}
+.gh span{font-family:var(--mono);font-size:11.5px;color:#8f96a1;letter-spacing:.06em}
+
+.fig{background:var(--card);border:1px solid var(--rule);border-radius:10px;padding:20px 22px}
+.timing{display:flex;gap:0;align-items:stretch;margin-top:14px;border:1px solid var(--rule);
+  border-radius:9px;overflow:hidden;background:var(--card)}
+.tcell{flex:1;padding:16px 18px;text-align:center}
+.tcell + .tcell{border-left:1px solid var(--rule)}
+.tcell .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim);display:block}
+.tcell .v{font-family:var(--mono);font-size:34px;line-height:1.15;color:var(--ink);
+  font-variant-numeric:tabular-nums;display:block;margin-top:4px}
+.tcell.win .v{color:var(--cool)}
+.tcell .u{font-size:13px;color:var(--dim);display:block;margin-top:2px}
+.tcell.gainy{background:#f6f4ef}
+.tcell.gainy .v{color:var(--hot)}
+.algo{background:var(--card);border:1px solid var(--rule);border-radius:10px;overflow:hidden}
+.ahead{font-family:var(--mono);font-size:12px;letter-spacing:.08em;padding:11px 20px;
+  background:#f6f4ef;border-bottom:1px solid var(--rule);color:var(--ink)}
+.ain{padding:14px 20px 6px;font-family:var(--serif);font-size:15.5px;color:var(--text);
+  border-bottom:1px solid var(--rule);line-height:1.8}
+.alines{list-style:none;counter-reset:al;margin:0;padding:12px 20px 14px;
+  font-family:var(--serif);font-size:16px;line-height:2.05;color:var(--ink)}
+.alines li{counter-increment:al;position:relative;padding-left:34px}
+.alines li::before{content:counter(al);position:absolute;left:0;width:22px;text-align:right;
+  font-family:var(--mono);font-size:11.5px;color:var(--dim)}
+.alines li.ind{padding-left:56px}
+.cmt{font-family:var(--mono);font-size:12px;color:var(--dim)}
+.cst{float:right;font-family:var(--mono);font-size:11.5px;color:var(--cool)}
+.afoot{border-top:1px solid var(--rule);padding:14px 20px;background:#fbfaf7}
+.arow{font-family:var(--serif);font-size:15.5px;line-height:1.85;margin-bottom:8px;color:var(--text)}
+.arow:last-child{margin-bottom:0} .arow b{color:var(--ink)}
+.math{background:var(--card);border:1px solid var(--rule);border-radius:10px;
+  padding:20px 24px;font-family:var(--serif);font-size:16px;color:var(--ink);line-height:2}
+.math .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--dim);display:block;margin-bottom:10px}
+.math i{font-style:italic}
+.math .cm{font-family:var(--mono);font-size:12px;color:var(--dim);font-style:normal}
+.math .row{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:baseline}
+.math hr{border:none;border-top:1px solid var(--rule);margin:16px 0}
+@keyframes pop{0%,6%{opacity:0;transform:translateY(4px)}16%,100%{opacity:1;transform:none}}
+@keyframes glow{0%,26%{opacity:0}34%,100%{opacity:1}}
+@keyframes draw{0%,18%{stroke-dashoffset:80}28%,100%{stroke-dashoffset:0}}
+@keyframes fill{0%,38%{width:0}50%,100%{width:92px}}
+.anim .d{animation:pop 6s ease-out infinite}
+.anim .win{animation:glow 6s ease-out infinite}
+.anim .fl{stroke-dasharray:80;animation:draw 6s ease-out infinite}
+.anim .cm2{animation:fill 6s ease-out infinite}
+@media (prefers-reduced-motion:reduce){
+  .anim .d,.anim .win,.anim .fl,.anim .cm2{animation:none}
+  .anim .win,.anim .d{opacity:1} .anim .fl{stroke-dashoffset:0} .anim .cm2{width:92px}
+}
+.fig .cap{font-size:13.5px;color:var(--dim);margin:12px 0 0;line-height:1.55}
+pre{background:var(--card);border:1px solid var(--rule);border-radius:10px;padding:18px 22px;
+  overflow-x:auto;font-family:var(--mono);font-size:13.5px;color:var(--ink);line-height:1.7;margin:0}
+.tbl{overflow-x:auto;margin-bottom:8px}
+table{width:100%;border-collapse:collapse;font-size:15px;background:var(--card);
+  border:1px solid var(--rule);border-radius:10px;overflow:hidden}
+th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--rule);white-space:nowrap}
+th{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--dim);font-weight:500;background:#f6f4ef}
+td.n{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums;color:var(--ink)}
+td.best{color:var(--cool);font-weight:600}
+tbody tr:last-child td{border-bottom:none}
+.cap-t{font-size:13.5px;color:var(--dim);margin:8px 0 30px}
+.note{background:var(--card);border:1px solid var(--rule);border-left:3px solid var(--hot);
+  border-radius:8px;padding:16px 22px;margin-top:20px;font-size:15.5px}
+.note p:last-child{margin:0}
+footer{border-top:1px solid var(--rule);padding:30px 0 64px;text-align:center;color:var(--dim);font-size:14px}
+</style>
+
+<header><div class="wrap">
+  <h1>CachedSearch</h1>
+  <p class="sub">Training-free cached exploration for test-time search in video diffusion</p>
+  <p class="authors">Shreshth Saini &#183; Neil Birkbeck &#183; Yilin Wang &#183; Balu Adsumilli &#183; Alan C. Bovik</p>
+  <p class="affil">The University of Texas at Austin &#183; Google</p>
+  <div class="logos">
+    <img src="assets/logos/utaustin.png" alt="The University of Texas at Austin">
+    <img src="assets/logos/live.png" class="tall" alt="LIVE Lab">
+    <img src="assets/logos/google.png" alt="Google">
+    <img src="assets/logos/youtube.png" alt="YouTube">
   </div>
-</nav>
-
-<header class="hero" id="top">
-  <div class="wrap">
-    <span class="kicker">Training-free &middot; any cache &middot; any verifier</span>
-    <h1>CachedSearch: Training-Free Cached Exploration for Test-Time Search in Video Diffusion</h1>
-    <p class="sub">Test-time search only needs candidate <em>rankings</em> to survive acceleration. They do. So explore every candidate under aggressive caching, then re-generate only the winner at full compute.</p>
-
-    <p class="authors">
-      <a href="https://shreshthsaini.github.io/">Shreshth Saini</a><sup>1,2,&dagger;</sup>&nbsp;&nbsp;
-      <a href="https://www.linkedin.com/in/neil-birkbeck-826433a/">Neil Birkbeck</a><sup>2</sup>&nbsp;&nbsp;
-      <a href="https://research.google/people/106001/">Yilin Wang</a><sup>2</sup>&nbsp;&nbsp;
-      <a href="https://www.linkedin.com/in/balu-adsumilli-2537031/">Balu Adsumilli</a><sup>2</sup>&nbsp;&nbsp;
-      <a href="https://live.ece.utexas.edu/">Alan C. Bovik</a><sup>1,3</sup>
-    </p>
-    <p class="affil"><sup>1</sup>The University of Texas at Austin &nbsp;&middot;&nbsp; <sup>2</sup>Google, Inc. &nbsp;&middot;&nbsp; <sup>3</sup>University of Colorado Boulder</p>
-    <p class="fnote"><sup>&dagger;</sup>Work done while at The University of Texas at Austin.</p>
-
-    <div class="cta">
-      <a class="btn solid" href="https://arxiv.org/abs/2607.23159">Paper (arXiv)</a>
-      <a class="btn" href="https://github.com/shreshthsaini/CachedSearch">
-        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
-        Code
-      </a>
-      <a class="btn" href="#gallery">See the videos</a>
-      <a class="btn" href="https://shreshthsaini.github.io/blogs/cachedsearch.html">Read the blog</a>
-    </div>
-
-    <div class="pipe" id="how">
-      <div class="row">
-        <div>
-          <div class="drafts">
-            <div class="d"></div><div class="d"></div><div class="d"></div><div class="d win"></div>
-            <div class="d"></div><div class="d"></div><div class="d"></div><div class="d"></div>
-          </div>
-          <div class="stage">explore cached</div>
-        </div>
-        <div class="arrow">&rarr;</div>
-        <div>
-          <div class="drafts"><div class="d win" style="width:34px"></div></div>
-          <div class="stage">verifier picks</div>
-        </div>
-        <div class="arrow">&rarr;</div>
-        <div>
-          <div class="final"></div>
-          <div class="stage">commit full</div>
-        </div>
-      </div>
-      <p class="legend">Eight drafts at half price, one full-compute delivery. The shipped video is a genuine full-compute sample, because the sampler is deterministic in its seed.</p>
-    </div>
-  </div>
-  </div>
-</header>
-
-<section id="explore">
-  <div class="wrap">
-    <span class="eyebrow">Cost explorer</span>
-    <h2>What search width costs, with and without us</h2>
-    <p class="lead">Every bar below is measured on Wan2.1-T2V-1.3B: a full rollout takes 68.3 s, a cached draft 34.7 s. Pick a search width to see what each strategy spends and how much of full search's reward gain survives.</p>
-
-    <div class="explorer">
-      <h3>Search width</h3>
-      <p class="hint">measured operating points</p>
-      <div class="seg" id="seg">
-        <button data-n="2" aria-pressed="false">N = 2</button>
-        <button data-n="4" aria-pressed="false">N = 4</button>
-        <button data-n="8" aria-pressed="true">N = 8</button>
-        <button data-n="16" aria-pressed="false">N = 16</button>
-      </div>
-
-      <div class="bars">
-        <div class="bar-row">
-          <span class="name">Full best-of-N</span>
-          <div class="track"><div class="fill full" id="bar-full" style="width:100%"></div></div>
-          <span class="val" id="val-full">547 s</span>
-        </div>
-        <div class="bar-row">
-          <span class="name">CachedSearch</span>
-          <div class="track"><div class="fill ours" id="bar-ours" style="width:63%"></div></div>
-          <span class="val" id="val-ours">346 s</span>
-        </div>
-      </div>
-
-      <div class="readout">
-        <div><div class="v hot" id="r-cost">63%</div><div class="k">of full search's cost</div></div>
-        <div><div class="v" id="r-cap">94.7%</div><div class="k">of its reward gain</div></div>
-        <div><div class="v" id="r-save">201 s</div><div class="k">saved per prompt</div></div>
-      </div>
-      <p class="foot" id="r-note">At N = 8, recommit costs 8 cached drafts plus one full rollout.</p>
-    </div>
-  </div>
-</section>
-
-<section id="gallery">
-  <div class="wrap">
-    <span class="eyebrow">Video gallery</span>
-    <h2>What search actually buys you</h2>
-    <p class="lead">One prompt per clip: an unlucky candidate on the left, the candidate CachedSearch selected on the right. Both are delivered at full compute, so search is only choosing between them. The figure is the reward gap in verifier units. Selected showcases; the aggregate is in the findings below.</p>
-
-    <div class="gal">
-      <div class="shot"><img loading="lazy" src="assets/gallery/gal_robot_dancing_in_times_squar.gif" alt="Robot dancing in Times Square"><div class="meta"><b>Robot dancing in Times Square</b><span class="g">+2.96</span></div></div>
-      <div class="shot"><img loading="lazy" src="assets/gallery/gal_a_person_is_playing_harp.gif" alt="A person is playing harp"><div class="meta"><b>A person is playing harp</b><span class="g">+3.91</span></div></div>
-      <div class="shot"><img loading="lazy" src="assets/gallery/gal_a_boat_sailing_leisurely_alo.gif" alt="A boat sailing along the Seine"><div class="meta"><b>A boat sailing along the Seine</b><span class="g">+3.28</span></div></div>
-    </div>
-
-    <div class="gal pair" style="margin-top:24px">
-      <div class="shot"><img loading="lazy" src="assets/gallery/gal_a_red_clock.gif" alt="a red clock"><div class="meta"><b>A red clock</b><span class="g">+3.25</span></div></div>
-      <div class="shot"><img loading="lazy" src="assets/gallery/gal_a_pink_clock.gif" alt="a pink clock"><div class="meta"><b>A pink clock</b><span class="g">+3.03</span></div></div>
-      <div class="shot"><img loading="lazy" src="assets/gallery/gal_a_book_and_a_clock.gif" alt="a book and a clock"><div class="meta"><b>A book and a clock</b><span class="g">+3.03</span></div></div>
-      <div class="shot"><img loading="lazy" src="assets/gallery/gal_a_bench_on_the_left_of_a_tru.gif" alt="a bench on the left of a truck"><div class="meta"><b>A bench left of a truck</b><span class="g">+2.97</span></div></div>
-      <div class="shot"><img loading="lazy" src="assets/gallery/gal_a_couch_on_the_right_of_a_be.gif" alt="a couch on the right of a bed"><div class="meta"><b>A couch right of a bed</b><span class="g">+2.92</span></div></div>
-      <div class="shot"><img loading="lazy" src="assets/gallery/gal_a_green_bicycle.gif" alt="a green bicycle"><div class="meta"><b>A green bicycle</b><span class="g">+2.86</span></div></div>
-    </div>
-  </div>
-</section>
-
-<section id="findings">
-  <div class="wrap">
-    <span class="eyebrow">Findings</span>
-    <h2>Measured on VBench and VBench-2.0</h2>
-    <p class="lead">Every candidate generated twice from identical seeds, once at full compute and once cached, then scored by the same verifier. Configured on a pilot grid and re-measured on the full suites.</p>
-
-    <div class="finds">
-      <article class="find">
-        <span class="num">Finding 01</span>
-        <h3>Rankings survive caching</h3>
-        <p>Cached and full-compute orderings agree closely, which is the only property search depends on. The draft the verifier scores costs about half of the sample it stands in for.</p>
-        <div class="stats">
-          <div><span>0.905</span><small>median Spearman &rho;</small></div>
-          <div><span>72%</span><small>top-1 agreement</small></div>
-          <div><span>2&times;</span><small>cheaper per draft</small></div>
-        </div>
-        <figure><img loading="lazy" src="assets/gif_twins.gif" alt="The same seed at full compute and under caching">
-          <figcaption>Same seed: full compute on the left, the cached draft the verifier ranks on the right.</figcaption></figure>
-      </article>
-
-      <article class="find">
-        <span class="num">Finding 02</span>
-        <h3>When ranking breaks, it breaks cheaply</h3>
-        <p>Corruption concentrates on prompts whose candidates were nearly tied to begin with, exactly where choosing wrong costs least. Most prompts lose nothing at all, so the failure mode is self-limiting rather than compounding with search width.</p>
-        <div class="stats">
-          <div><span>0</span><small>median regret</small></div>
-          <div><span>+0.31</span><small>corr(spread, &rho;)</small></div>
-        </div>
-      </article>
-
-      <article class="find">
-        <span class="num">Finding 03</span>
-        <h3>The trajectory matters, not the budget</h3>
-        <p>The obvious alternative is fewer denoising steps per candidate. At a matched two-fold saving it does far worse, because a truncated rollout honestly samples a <em>different</em>, shorter-schedule distribution: its scores rank its own outputs, not the full-compute videos that commit will deliver. Caching perturbs the same seed-matched trajectory, which is exactly what search needs.</p>
-        <p>Drafting at half resolution is the sharper version of the same test, and it fails completely. Changing the resolution changes the shape of the latent, so a seed no longer indexes a perturbed version of the same sample: it indexes a different one. Those drafts are the cheapest of the three and carry no usable ranking signal at all.</p>
-        <div class="stats">
-          <div><span>90.1%</span><small>capture, caching</small></div>
-          <div><span>72.6%</span><small>capture, truncation</small></div>
-          <div><span>&minus;0.8%</span><small>capture, half-resolution drafts</small></div>
-        </div>
-        <figure><img loading="lazy" src="assets/f16_hero.png" alt="Delivered reward versus compute budget">
-          <figcaption>Above break-even, cached exploration delivers more reward than full search at equal budget; truncation delivers less.</figcaption></figure>
-      </article>
-
-      <article class="find">
-        <span class="num">Generality</span>
-        <h3>Any published cache can be the engine</h3>
-        <p>Every caching family we tested drops in unchanged and lands on one capture-versus-speedup frontier. Fidelity is set by how much compute you reuse, not by which mechanism reuses it, so a stack already running TeaCache or PAB keeps it and simply gains the explore-cheap structure.</p>
-        <div class="tbl" style="margin-top:20px">
-          <table>
-            <tr><th>Exploration engine</th><th class="n">Gain capture</th><th class="n">End-to-end cost</th></tr>
-            <tr><td>No caching (full best-of-8)</td><td class="n">100.0%</td><td class="n">621 s</td></tr>
-            <tr><td>PAB</td><td class="n">99.5%</td><td class="n">493 s</td></tr>
-            <tr><td>FasterCache CFG-Cache</td><td class="n">99.6%</td><td class="n">465 s</td></tr>
-            <tr><td>TeaCache</td><td class="n">93.2%</td><td class="n">365 s</td></tr>
-            <tr class="us"><td>EasyCache (our default)</td><td class="n">90.1%</td><td class="n">346 s</td></tr>
-          </table>
-        </div>
-      </article>
-
-      <article class="find">
-        <span class="num">Honest edge</span>
-        <h3>Keep-mode dampens motion</h3>
-        <p>Keeping the cached draft instead of re-committing is cheaper still, but it dampens motion, and learned judges mildly <em>prefer</em> the dampened result. That is why commit is the default, and why our keep-mode claims rest on optical flow and LPIPS rather than judge scores.</p>
-        <figure><img loading="lazy" src="assets/gif_motion.gif" alt="Commit against keep at an aggressive threshold">
-          <figcaption>Commit on the left, keep on the right, at an aggressive threshold.</figcaption></figure>
-      </article>
-    </div>
-  </div>
-</section>
-
-<section id="start">
-  <div class="wrap">
-    <span class="eyebrow">Quickstart</span>
-    <h2>Three lines in your search loop</h2>
-    <p class="lead">CachedSearch wraps generation rather than replacing your model. The verifier defaults to ImageReward, the scorer behind every number here; pass your own to override it.</p>
-
-    <div class="col">
-<pre><span class="c"># pip install -r requirements.txt</span>
-<span class="k">from</span> cachedsearch <span class="k">import</span> cached_search
-
-result = cached_search(pipe, prompt, n=8, tau=0.10)
-
-result.video          <span class="c"># genuine full-compute sample</span>
-result.seed           <span class="c"># the winning seed</span>
-result.total_seconds  <span class="c"># about 63% of full best-of-8</span></pre>
-      <p style="text-align:center;margin-top:22px"><a href="https://github.com/shreshthsaini/CachedSearch#use-it-on-your-model">Full adoption guide &rarr;</a></p>
-    </div>
-
-    <h2 style="margin-top:64px;font-size:26px">Calibrated operating points</h2>
-    <p class="lead">The caching threshold is the one model-specific number. Fidelity tracks architecture family rather than parameter count, so calibrate once per family and reuse it across sizes.</p>
-    <div class="tbl col">
-      <table>
-        <tr><th>Model</th><th class="n">Params</th><th>Family</th><th class="n">&tau;</th><th class="n">Capture</th><th class="n">Speedup</th></tr>
-        <tr><td>Wan2.1-T2V-1.3B</td><td class="n">1.3B</td><td>Wan</td><td class="n">0.20</td><td class="n">88.3%</td><td class="n">2.41&times;</td></tr>
-        <tr><td>Wan2.1-T2V-14B</td><td class="n">14B</td><td>Wan</td><td class="n">0.10</td><td class="n">87.5%</td><td class="n">2.05&times;</td></tr>
-        <tr><td>Wan2.2-TI2V-5B</td><td class="n">5B</td><td>Wan</td><td class="n">0.10</td><td class="n">86.0%</td><td class="n">2.05&times;</td></tr>
-        <tr><td>CogVideoX-5B</td><td class="n">5B</td><td>CogVideoX</td><td class="n">0.05</td><td class="n">85.9%</td><td class="n">1.78&times;</td></tr>
-        <tr><td>HunyuanVideo</td><td class="n">13B</td><td>HunyuanVideo</td><td class="n">0.05</td><td class="n">85.1%</td><td class="n">1.77&times;</td></tr>
-        <tr><td>LTX-Video</td><td class="n">2B</td><td>LTX</td><td class="n">0.02</td><td class="n">79.6%</td><td class="n">1.71&times;</td></tr>
-      </table>
-    </div>
-    <div class="note col" style="margin-top:24px">The method is not limited to these. It applies to any diffusion or flow-matching video model with a seed-deterministic sampler, which covers essentially every open text-to-video pipeline; these six are where we measured the numbers ourselves. LTX-Video is the honest boundary case: no threshold we measured reached 85% capture, which is precisely what calibration is meant to reveal before deployment rather than after.</div>
-  </div>
-</section>
-
-<section id="cite">
-  <div class="wrap">
-    <span class="eyebrow">Citation</span>
-    <h2>Cite this work</h2>
-    <div class="col">
-<pre>@article{saini2026cachedsearch,
-  title         = {CachedSearch: Training-Free Cached Exploration for Test-Time
-                   Search in Video Diffusion},
-  author        = {Saini, Shreshth and Birkbeck, Neil and Wang, Yilin and
-                   Adsumilli, Balu and Bovik, Alan C.},
-  year          = {2026},
-  eprint        = {2607.23159},
-  archivePrefix = {arXiv},
-  primaryClass  = {cs.AI}
-}</pre>
-      <p style="margin-top:28px;text-align:center;font-size:15.5px;color:var(--dim)">This work stands on open releases from the video generation community. We thank the teams behind
-        <a href="https://github.com/Wan-Video/Wan2.1">Wan2.1</a>,
-        <a href="https://github.com/THUDM/CogVideo">CogVideoX</a>,
-        <a href="https://github.com/Tencent/HunyuanVideo">HunyuanVideo</a>,
-        <a href="https://github.com/Lightricks/LTX-Video">LTX-Video</a>,
-        <a href="https://github.com/ali-vilab/TeaCache">TeaCache</a>,
-        <a href="https://github.com/NUS-HPC-AI-Lab/VideoSys">PAB and VideoSys</a>,
-        <a href="https://github.com/Vchitect/FasterCache">FasterCache</a>,
-        <a href="https://github.com/H-EmbodVis/EasyCache">EasyCache</a>,
-        <a href="https://github.com/THUDM/ImageReward">ImageReward</a>,
-        <a href="https://github.com/TIGER-AI-Lab/VideoScore">VideoScore</a>, and
-        <a href="https://github.com/Vchitect/VBench">VBench</a>.</p>
-    </div>
-  </div>
-</section>
-
-<footer>
-  <div class="wrap">
+  <div class="links">
+    <a href="https://arxiv.org/abs/2607.23159">arXiv</a>
     <a href="https://github.com/shreshthsaini/CachedSearch">Code</a>
     <a href="https://shreshthsaini.github.io/blogs/cachedsearch.html">Blog</a>
-    <a href="https://shreshthsaini.github.io/">Shreshth Saini</a>
-    <p style="margin-top:16px;font-size:13px">&copy; 2026 the authors</p>
+    <a href="#gallery">Examples</a>
+    <a href="#results">Results</a>
+    <a href="#more">More</a>
+    <a href="#cite">BibTeX</a>
   </div>
-</footer>
+</div></header>
+
+<div class="band"><div class="wide">
+  <div class="center"><h2>The sample you would have got, and the one search found</h2>
+  <p class="lead">Both are full-compute rollouts of the same prompt on the same model at
+  the same settings. The only difference is which seed was chosen.</p></div>
+<figure class="cmp hero">
+  <div class="stage"><video src="assets/v/hero_demo_quirky_p03_draw.mp4" autoplay muted loop playsinline preload="auto"></video>
+  <video src="assets/v/hero_demo_quirky_p03_pick.mp4" autoplay muted loop playsinline preload="auto"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.43</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.45</span></div>
+    <div class="mid"><span class="pr">A polar bear wearing sunglasses floating on a pink inflatable flamingo in a swimming pool</span>
+      <span class="det">+2.89 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp hero">
+  <div class="stage"><video src="assets/v/hero_demo_quirky_p00_draw.mp4" autoplay muted loop playsinline preload="auto"></video>
+  <video src="assets/v/hero_demo_quirky_p00_pick.mp4" autoplay muted loop playsinline preload="auto"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.28</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.71</span></div>
+    <div class="mid"><span class="pr">An octopus playing a grand piano on the seabed, bubbles rising through sunbeams</span>
+      <span class="det">+2.00 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp hero">
+  <div class="stage"><video src="assets/v/hero_demo_ltxw_p00_draw.mp4" autoplay muted loop playsinline preload="auto"></video>
+  <video src="assets/v/hero_demo_ltxw_p00_pick.mp4" autoplay muted loop playsinline preload="auto"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.40</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.54</span></div>
+    <div class="mid"><span class="pr">A lion&#x27;s face in extreme close-up at golden hour, mane lifting in the wind, eyes locked on the camera</span>
+      <span class="det">+2.94 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; same seed as full compute</span></div>
+  </figcaption></figure>
+</div></div>
+
+<section><div class="wrap">
+  <h2>The problem</h2>
+  <div class="two">
+    <div>
+      <p>Ask a video model for the same thing twice and you get two different videos.
+      Change the seed and the subject moves, the light changes, and sometimes the thing
+      you asked for simply is not there. Anyone who has shipped generated video knows the
+      routine: run it a few times, keep the one that worked.</p>
+      <p>That routine has a name. Best-of-<i>N</i> search runs the prompt <i>N</i> times
+      and keeps whichever a verifier scores highest. It works. It also costs <i>N</i>
+      times as much, and <i>N</i>&#8722;1 of those samples go straight in the bin.</p>
+      <p>On the right is one prompt at two seeds on the same model. Nothing separates them
+      but the number the sampler started from. One of them is what you would have received.</p>
+    </div>
+    <div><figure class="cmp prob">
+  <div class="stage"><video data-src="assets/v/prob_demo_ltxm_p01_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/prob_demo_ltxm_p01_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.59</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.81</span></div>
+    <div class="mid"><span class="pr">A rally car sliding through a forest hairpin, gravel spraying into low sun</span>
+      <span class="det">+1.40 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; different seed from full compute</span></div>
+  </figcaption></figure></div>
+  </div>
+</div></section>
+
+<section style="background:#f6f4ef;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)">
+  <div class="wrap">
+  <h2>The observation</h2>
+  <p class="lead">Caching is normally measured by how close a cached sample is to the real
+  thing. For search that is the wrong test. The draft never ships. All it has to do is come
+  out in the right order, and that is a far weaker requirement than looking identical.</p>
+  <div class="two">
+    <div class="fig">
+      <div class="stage"><video data-src="assets/v/twins_full.mp4" autoplay muted loop playsinline preload="none"></video>
+      <video data-src="assets/v/twins_cached.mp4" autoplay muted loop playsinline preload="none"></video></div>
+      <figcaption style="padding-top:9px">
+        <div class="side"><span class="who">Full compute</span></div>
+        <div class="side"><span class="who ours">Cached draft</span></div>
+      </figcaption>
+      <div class="timing">
+        <div class="tcell"><span class="k">Full compute</span><span class="v">67<span class="u" style="display:inline">s</span></span><span class="u">+1.61 verifier</span></div>
+        <div class="tcell win"><span class="k">Cached draft</span><span class="v">30<span class="u" style="display:inline">s</span></span><span class="u">+1.74 verifier</span></div>
+        <div class="tcell gainy"><span class="k">Cost</span><span class="v">45%</span><span class="u">and scores +0.13 higher</span></div>
+      </div>
+      <p class="cap">One seed on Wan2.1-T2V 1.3B, generated twice: at full compute on the left,
+      under caching on the right. The draft costs
+      45% as much and the verifier prefers it. Fidelity to
+      the full rollout is not what search needs, and not what it gets.</p>
+    </div>
+    <div>
+      <p>The sampler is deterministic in the seed, so regenerating the winner with caching
+      off gives back a real full-compute sample. When the cached ranking and the
+      full-compute ranking agree on which seed wins, what ships is bit-identical to what
+      full best-of-<i>N</i> would have handed you. The caching changed the choice, not the
+      output.</p>
+      <p>Across the 104 pairs on this page the drafts picked the same winner on
+      64 of them.</p>
+      <div class="fig" style="margin-top:20px"><svg viewBox="-4 -4 470 132" width="100%" style="max-width:470px" role="img"
+ aria-label="cost of best-of-8 against CachedSearch">
+  <text x="0" y="20" font-size="12.5" font-family="var(--sans)" fill="var(--dim)">Best-of-8 at full compute</text>
+  <rect x="0" y="28" width="330" height="26" rx="3" fill="var(--nodefill)"/>
+  <text x="340" y="46" font-size="13" font-family="var(--mono)" fill="var(--ink)">99 min</text>
+  <text x="0" y="78" font-size="12.5" font-family="var(--sans)" fill="var(--dim)">CachedSearch: eight drafts, then one commit</text>
+  <rect x="0.0" y="86" width="16.4" height="26" rx="2" fill="var(--cool)"/><rect x="18.4" y="86" width="16.4" height="26" rx="2" fill="var(--cool)"/><rect x="36.9" y="86" width="16.4" height="26" rx="2" fill="var(--cool)"/><rect x="55.3" y="86" width="16.4" height="26" rx="2" fill="var(--cool)"/><rect x="73.7" y="86" width="16.4" height="26" rx="2" fill="var(--cool)"/><rect x="92.2" y="86" width="16.4" height="26" rx="2" fill="var(--cool)"/><rect x="110.6" y="86" width="16.4" height="26" rx="2" fill="var(--cool)"/><rect x="129.0" y="86" width="16.4" height="26" rx="2" fill="var(--cool)"/><rect x="147.5" y="86" width="41.2" height="26" rx="3" fill="var(--hot)"/>
+  <text x="199" y="104" font-size="13" font-family="var(--mono)" fill="var(--ink)">57 min &#183; 57%</text>
+</svg>
+        <p class="cap">Measured on Wan2.1-T2V 14B at
+        1280&#215;720: eight full rollouts against eight drafts plus
+        one commit.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>Approach</h2>
+  <p class="lead">A wrapper around generation, not a new model. Any published training-free
+  cache works as the engine, any verifier works as the judge.</p>
+  <div class="fig" style="text-align:center"><svg class="anim" viewBox="-18 0 796 152" width="100%" style="max-width:880px" role="img"
+ aria-label="cached drafts are scored, the winner is committed at full compute">
+  <rect x="8" y="22" width="152" height="52" rx="6" fill="var(--card)" stroke="var(--rule)"/>
+  <g class="d" style="animation-delay:0.00s"><rect x="18" y="34" width="12" height="26" rx="2" fill="var(--cool)" opacity=".92"/></g><g class="d" style="animation-delay:0.09s"><rect x="33" y="37" width="12" height="26" rx="2" fill="var(--cool)" opacity=".92"/></g><g class="d" style="animation-delay:0.18s"><rect x="48" y="34" width="12" height="26" rx="2" fill="var(--cool)" opacity=".92"/></g><g class="d" style="animation-delay:0.27s"><rect x="63" y="37" width="12" height="26" rx="2" fill="var(--cool)" opacity=".92"/></g><g class="d" style="animation-delay:0.36s"><rect x="78" y="34" width="12" height="26" rx="2" fill="var(--cool)" opacity=".92"/></g><g class="d" style="animation-delay:0.45s"><rect x="93" y="37" width="12" height="26" rx="2" fill="var(--hot)" opacity=".92"/></g><g class="d" style="animation-delay:0.54s"><rect x="108" y="34" width="12" height="26" rx="2" fill="var(--cool)" opacity=".92"/></g><g class="d" style="animation-delay:0.63s"><rect x="123" y="37" width="12" height="26" rx="2" fill="var(--cool)" opacity=".92"/></g>
+  <text x="84" y="94" text-anchor="middle" font-size="12.5" font-family="var(--sans)" fill="var(--ink)">N cached drafts</text>
+  <text x="84" y="110" text-anchor="middle" font-size="10.5" font-family="var(--mono)" fill="var(--dim)">cache ON &#183; &#8776; half cost each</text>
+  <g transform="translate(8,124)">
+    <rect x="0.0" y="2" width="2.3" height="7" rx="0.6" fill="var(--cool)"/><rect x="3.1" y="2" width="2.3" height="7" rx="0.6" fill="var(--cool)"/><rect x="6.3" y="2" width="2.3" height="7" rx="0.6" fill="var(--cool)"/><rect x="9.4" y="2" width="2.3" height="7" rx="0.6" fill="var(--cool)"/><rect x="12.6" y="2" width="2.3" height="7" rx="0.6" fill="var(--cool)"/><rect x="15.8" y="2" width="2.3" height="7" rx="0.6" fill="var(--nodefill)"/><rect x="18.9" y="2" width="2.3" height="7" rx="0.6" fill="var(--nodefill)"/><rect x="22.1" y="2" width="2.3" height="7" rx="0.6" fill="var(--cool)"/><rect x="25.2" y="2" width="2.3" height="7" rx="0.6" fill="var(--nodefill)"/><rect x="28.3" y="2" width="2.3" height="7" rx="0.6" fill="var(--nodefill)"/><rect x="31.5" y="2" width="2.3" height="7" rx="0.6" fill="var(--nodefill)"/><rect x="34.6" y="2" width="2.3" height="7" rx="0.6" fill="var(--cool)"/><rect x="37.8" y="2" width="2.3" height="7" rx="0.6" fill="var(--nodefill)"/><rect x="40.9" y="2" width="2.3" height="7" rx="0.6" fill="var(--nodefill)"/><rect x="44.1" y="2" width="2.3" height="7" rx="0.6" fill="var(--nodefill)"/><rect x="47.2" y="2" width="2.3" height="7" rx="0.6" fill="var(--nodefill)"/><rect x="50.4" y="2" width="2.3" height="7" rx="0.6" fill="var(--cool)"/><rect x="53.5" y="2" width="2.3" height="7" rx="0.6" fill="var(--nodefill)"/><rect x="56.7" y="2" width="2.3" height="7" rx="0.6" fill="var(--nodefill)"/><rect x="59.9" y="2" width="2.3" height="7" rx="0.6" fill="var(--nodefill)"/><rect x="63.0" y="2" width="2.3" height="7" rx="0.6" fill="var(--nodefill)"/><rect x="66.1" y="2" width="2.3" height="7" rx="0.6" fill="var(--nodefill)"/><rect x="69.3" y="2" width="2.3" height="7" rx="0.6" fill="var(--cool)"/><rect x="72.5" y="2" width="2.3" height="7" rx="0.6" fill="var(--nodefill)"/><rect x="75.6" y="2" width="2.3" height="7" rx="0.6" fill="var(--nodefill)"/><rect x="78.8" y="2" width="2.3" height="7" rx="0.6" fill="var(--nodefill)"/><rect x="81.9" y="2" width="2.3" height="7" rx="0.6" fill="var(--nodefill)"/><rect x="85.0" y="2" width="2.3" height="7" rx="0.6" fill="var(--cool)"/><rect x="88.2" y="2" width="2.3" height="7" rx="0.6" fill="var(--nodefill)"/><rect x="91.3" y="2" width="2.3" height="7" rx="0.6" fill="var(--nodefill)"/><rect x="94.5" y="2" width="2.3" height="7" rx="0.6" fill="var(--cool)"/><rect x="97.6" y="2" width="2.3" height="7" rx="0.6" fill="var(--cool)"/><rect x="100.8" y="2" width="2.3" height="7" rx="0.6" fill="var(--cool)"/><rect x="104.0" y="2" width="2.3" height="7" rx="0.6" fill="var(--cool)"/>
+    <text x="113" y="9" font-size="9" font-family="var(--mono)" fill="var(--dim)">54% skipped</text>
+  </g>
+  <line class="fl" x1="168" y1="48" x2="236" y2="48" stroke="var(--dim)" stroke-width="1.4"/><path d="M 236 44 L 244 48 L 236 52 Z" fill="var(--dim)"/><text x="206" y="37" text-anchor="middle" font-size="10.5" font-family="var(--mono)" fill="var(--dim)">score</text>
+  <rect x="248" y="22" width="150" height="52" rx="6" fill="var(--card)" stroke="var(--rule)"/>
+  <rect x="262" y="47" width="9" height="9" rx="1.5" fill="var(--nodefill)"/><rect x="278" y="40" width="9" height="16" rx="1.5" fill="var(--nodefill)"/><rect x="294" y="46" width="9" height="10" rx="1.5" fill="var(--nodefill)"/><rect x="310" y="39" width="9" height="17" rx="1.5" fill="var(--nodefill)"/><rect x="326" y="45" width="9" height="11" rx="1.5" fill="var(--nodefill)"/><rect x="342" y="36" width="9" height="26" rx="1.5" fill="var(--hot)"/><rect x="358" y="44" width="9" height="12" rx="1.5" fill="var(--nodefill)"/><rect x="374" y="37" width="9" height="19" rx="1.5" fill="var(--nodefill)"/>
+  <g class="win"><rect x="339" y="30" width="15" height="36" rx="2" fill="none"
+    stroke="var(--hot)" stroke-width="1.6"/></g>
+  <text x="323" y="94" text-anchor="middle" font-size="12.5" font-family="var(--sans)" fill="var(--ink)">verifier ranks them</text>
+  <text x="323" y="110" text-anchor="middle" font-size="10.5" font-family="var(--mono)" fill="var(--dim)">argmax over drafts</text>
+  <line class="fl" x1="406" y1="48" x2="474" y2="48" stroke="var(--dim)" stroke-width="1.4"/><path d="M 474 44 L 482 48 L 474 52 Z" fill="var(--dim)"/><text x="444" y="37" text-anchor="middle" font-size="10.5" font-family="var(--mono)" fill="var(--dim)">winner</text>
+  <rect x="486" y="22" width="120" height="52" rx="6" fill="var(--card)" stroke="var(--hot)"/>
+  <rect class="cm2" x="500" y="32" width="92" height="32" rx="3" fill="var(--hot)" opacity=".92"/>
+  <text x="546" y="94" text-anchor="middle" font-size="12.5" font-family="var(--sans)" fill="var(--ink)">commit that seed</text>
+  <text x="546" y="110" text-anchor="middle" font-size="10.5" font-family="var(--mono)" fill="var(--dim)">cache OFF &#183; 1 rollout</text>
+  <line class="fl" x1="614" y1="48" x2="668" y2="48" stroke="var(--dim)" stroke-width="1.4"/><path d="M 668 44 L 676 48 L 668 52 Z" fill="var(--dim)"/>
+  <rect x="680" y="22" width="72" height="52" rx="6" fill="var(--stage)"/>
+  <text x="716" y="52" text-anchor="middle" font-size="10.5" font-family="var(--mono)" fill="#eceae4">deliver</text>
+  <text x="716" y="94" text-anchor="middle" font-size="12.5" font-family="var(--sans)" fill="var(--ink)">full-compute</text>
+  <text x="716" y="110" text-anchor="middle" font-size="10.5" font-family="var(--mono)" fill="var(--dim)">sample</text>
+</svg></div>
+  <h3 style="margin-top:34px">Algorithm</h3>
+  <div class="two" style="gap:26px;margin-top:14px;grid-template-columns:1fr">
+    <div class="algo">
+      <div class="ahead">Algorithm 1&#160;&#160;CachedSearch</div>
+      <div class="ain"><b>Input</b> prompt <i>c</i>; seeds <i>S</i> = {<i>s</i><sub>1</sub>,&#8230;,<i>s<sub>N</sub></i>}; verifier <i>V</i>; sampler &#934;; threshold &#964;<br>
+      <b>Output</b> a full-compute sample <i>x</i></div>
+      <ol class="alines">
+        <li><span class="cmt">&#9655; explore: one cached rollout per seed</span></li>
+        <li><b>for</b> <i>i</i> = 1 <b>to</b> <i>N</i> <b>do</b></li>
+        <li class="ind"><i>x&#771;<sub>i</sub></i> &#8592; &#934;(<i>c</i>, <i>s<sub>i</sub></i> &#8739; cache = <b>on</b>, &#964;)<span class="cst">cost <i>C<sub>c</sub></i></span></li>
+        <li><b>end for</b></li>
+        <li><span class="cmt">&#9655; rank: only the ordering is consumed</span></li>
+        <li><i>i</i>* &#8592; arg max<sub><i>i</i>&#8712;[<i>N</i>]</sub> <i>V</i>(<i>x&#771;<sub>i</sub></i>, <i>c</i>)</li>
+        <li><span class="cmt">&#9655; commit: regenerate the winner exactly</span></li>
+        <li><i>x</i> &#8592; &#934;(<i>c</i>, <i>s</i><sub><i>i</i>*</sub> &#8739; cache = <b>off</b>)<span class="cst">cost <i>C<sub>f</sub></i></span></li>
+        <li><b>return</b> <i>x</i></li>
+      </ol>
+      <div class="afoot">
+        <div class="arow"><span><b>Cost.</b>&#160; <i>C</i><sub>ours</sub> = <i>N</i>&#183;<i>C<sub>c</sub></i> + <i>C<sub>f</sub></i>&#160;&#160;and&#160;&#160;<i>C</i><sub>ours</sub> / <i>C</i><sub>best-of-<i>N</i></sub> = <i>C<sub>c</sub></i>/<i>C<sub>f</sub></i> + 1/<i>N</i></span></div>
+        <div class="arow"><span><b>Exactness.</b>&#160; if arg max<sub><i>i</i></sub> <i>V</i>(<i>x&#771;<sub>i</sub></i>, <i>c</i>) = arg max<sub><i>i</i></sub> <i>V</i>(<i>x<sub>i</sub></i>, <i>c</i>) then <i>x</i> = <i>x</i><sub>best-of-<i>N</i></sub> bit for bit, because &#934; is deterministic in the seed.</span></div>
+        <div class="arow"><span><b>Requirement.</b>&#160; the drafts need only preserve the ordering induced by <i>V</i>, not approximate <i>x<sub>i</sub></i>. Rank agreement, not reconstruction error, is the quantity that matters.</span></div>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<div class="band" id="gallery"><div class="wide">
+  <div class="center"><h2>Qualitative comparisons</h2>
+  <p class="lead">Every pair is two full-compute rollouts of one prompt on the same model,
+  with the verifier score each received.</p></div>
+<figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_ltxi_p02_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_ltxi_p02_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.64</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.61</span></div>
+    <div class="mid"><span class="pr">A litter of golden retriever puppies playing in fresh powder snow, their heads popping out of the drift, fur dusted white</span>
+      <span class="det">+2.26 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_ltxi_p13_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_ltxi_p13_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.14</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.02</span></div>
+    <div class="mid"><span class="pr">A snow leopard prowling along a rocky Himalayan ridge at dawn, breath steaming in the cold air, fur detail razor sharp</span>
+      <span class="det">+2.17 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_hero_p06_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_hero_p06_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.41</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.47</span></div>
+    <div class="mid"><span class="pr">Slow motion honey pouring over a spoon, amber light through the stream</span>
+      <span class="det">+1.88 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_ltxm_p03_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_ltxm_p03_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.21</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.44</span></div>
+    <div class="mid"><span class="pr">A speedboat carving a tight turn, wake fanning across turquoise water</span>
+      <span class="det">+1.23 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_hero_p03_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_hero_p03_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.02</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.24</span></div>
+    <div class="mid"><span class="pr">A dandelion seed head bursting in slow motion, seeds drifting through golden backlight</span>
+      <span class="det">+1.21 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_ltxi_p06_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_ltxi_p06_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.35</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.16</span></div>
+    <div class="mid"><span class="pr">The camera follows behind a white vintage SUV with a black roof rack speeding up a steep dirt road lined with pine trees, dust kicking up behind the wheels</span>
+      <span class="det">+0.81 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_ltxi_p01_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_ltxi_p01_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.17</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.54</span></div>
+    <div class="mid"><span class="pr">Drone view of huge waves crashing against rugged cliffs at Big Sur, golden sunset light on the rocky shore, spray hanging in the air</span>
+      <span class="det">+0.70 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_ltx1080cal_p05_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_ltx1080cal_p05_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+1.09</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.73</span></div>
+    <div class="mid"><span class="pr">Waves crashing against a rocky lighthouse during a storm, sea spray thrown high into the air</span>
+      <span class="det">+0.64 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_ltx1080cal_p14_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_ltx1080cal_p14_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.95</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">-1.31</span></div>
+    <div class="mid"><span class="pr">Koi carp gliding under lily pads in a clear garden pond, sunlight rippling on the stones below</span>
+      <span class="det">+0.64 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_ltxi_p14_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_ltxi_p14_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.88</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">-0.25</span></div>
+    <div class="mid"><span class="pr">Slow motion of a blacksmith striking glowing orange steel on an anvil, sparks scattering into the dark forge</span>
+      <span class="det">+0.63 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_ltxi_p03_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_ltxi_p03_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+1.11</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.72</span></div>
+    <div class="mid"><span class="pr">Extreme close-up of a grey-haired man with a weathered beard in his sixties, deep in thought, dramatic side lighting, photorealistic skin detail</span>
+      <span class="det">+0.62 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_ltxi_p12_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_ltxi_p12_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.89</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">-0.36</span></div>
+    <div class="mid"><span class="pr">Macro slow motion of a single drop of water falling into a still black pool, a crown of droplets rising against darkness</span>
+      <span class="det">+0.52 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_w14x_p02_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_w14x_p02_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.77</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.81</span></div>
+    <div class="mid"><span class="pr">A flock of starlings forming a murmuration over a winter field</span>
+      <span class="det">+1.58 gap &#183; Wan2.1-T2V 14B &#183; 1280&#215;720 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_wan14b720_p03_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_wan14b720_p03_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.89</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.82</span></div>
+    <div class="mid"><span class="pr">A cyclist riding through a rainy Tokyo alley at night, neon signs reflected in the wet asphalt</span>
+      <span class="det">+0.93 gap &#183; Wan2.1-T2V 14B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_w14i_p02_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_w14i_p02_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.26</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.97</span></div>
+    <div class="mid"><span class="pr">A surfer riding deep inside the barrel of a huge turquoise wave, spray backlit by the sun</span>
+      <span class="det">+0.71 gap &#183; Wan2.1-T2V 14B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_wan14b720_p01_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_wan14b720_p01_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+1.75</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.90</span></div>
+    <div class="mid"><span class="pr">Hot air balloons drifting over the Cappadocia rock formations at dawn, aerial shot</span>
+      <span class="det">+0.15 gap &#183; Wan2.1-T2V 14B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_hun720_p12_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_hun720_p12_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.77</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.81</span></div>
+    <div class="mid"><span class="pr">A vintage sports car drifting through a gravel corner on a mountain road, dust trailing behind</span>
+      <span class="det">+1.03 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_hun720_p11_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_hun720_p11_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.00</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.78</span></div>
+    <div class="mid"><span class="pr">Time-lapse of storm clouds rolling over a mountain range at sunrise</span>
+      <span class="det">+0.79 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_hun720_p13_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_hun720_p13_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.64</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.14</span></div>
+    <div class="mid"><span class="pr">A blacksmith hammering glowing orange steel on an anvil, sparks flying in a dark forge</span>
+      <span class="det">+0.78 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_huni_p05_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_huni_p05_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.36</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.99</span></div>
+    <div class="mid"><span class="pr">A field of sunflowers turning in the wind under a fast moving cloudy sky</span>
+      <span class="det">+0.64 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_cal02n_p02_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_cal02n_p02_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.08</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.59</span></div>
+    <div class="mid"><span class="pr">An owl in reading glasses turning the pages of a huge book by candlelight</span>
+      <span class="det">+1.67 gap &#183; CogVideoX 5B &#183; 720&#215;480 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_cal02j_p01_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_cal02j_p01_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.13</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">-0.02</span></div>
+    <div class="mid"><span class="pr">A cup of hot chocolate with marshmallows melting, steam curling up in a cozy cabin</span>
+      <span class="det">+1.10 gap &#183; CogVideoX 5B &#183; 720&#215;480 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_b1_gate_vbench_63399748_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_b1_gate_vbench_63399748_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-2.02</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+2.00</span></div>
+    <div class="mid"><span class="pr">A polar bear is playing guitar</span>
+      <span class="det">+4.02 gap &#183; Wan2.1-T2V 1.3B &#183; 832&#215;480 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_b1_gate_vqares_8558859_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_b1_gate_vqares_8558859_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.99</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.73</span></div>
+    <div class="mid"><span class="pr">A campfire crackling under a starry desert sky</span>
+      <span class="det">+3.71 gap &#183; Wan2.1-T2V 1.3B &#183; 832&#215;480 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_w14w_p02_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_w14w_p02_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.20</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.80</span></div>
+    <div class="mid"><span class="pr">A lightning strike over a desert mesa at night, the whole sky flashing violet</span>
+      <span class="det">+1.60 gap &#183; Wan2.1-T2V 14B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_w14w_p00_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_w14w_p00_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.23</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.86</span></div>
+    <div class="mid"><span class="pr">A stag with wide antlers standing in morning fog between birch trees</span>
+      <span class="det">+1.63 gap &#183; Wan2.1-T2V 14B &#183; 1280&#215;720 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_hunw_p02_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_hunw_p02_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.35</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.29</span></div>
+    <div class="mid"><span class="pr">A carousel at dusk as the lights switch on, painted horses blurred with motion</span>
+      <span class="det">+1.64 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_hunw_p07_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_hunw_p07_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.25</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.86</span></div>
+    <div class="mid"><span class="pr">A hot air balloon burner firing at night, the envelope glowing from within</span>
+      <span class="det">+1.61 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_hunL_p01_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_hunL_p01_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.04</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.36</span></div>
+    <div class="mid"><span class="pr">A neon sign above a rain soaked alley flickers, stutters, and comes fully to life, its pink and cyan tubes reflecting in the standing water below. Rain falls steadily through the light. Fire escapes and stacked crates line the wet brick walls. Low angle medium shot, camera static, the sign in the upper third and its reflection in the lower. Practical neon lighting only, high saturation against deep black shadow. Wet, cinematic, realistic style.</span>
+      <span class="det">+1.32 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp feat">
+  <div class="stage"><video data-src="assets/v/feat_demo_hunw_p06_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/feat_demo_hunw_p06_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.72</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.60</span></div>
+    <div class="mid"><span class="pr">Pointe shoes striking a wooden stage, chalk dust bursting from the boards</span>
+      <span class="det">+1.32 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure>
+</div></div>
+
+<section id="results"><div class="wrap">
+  <h2>Quantitative results</h2>
+  <p class="lead">From the paper: 50 prompts, eight seeds each, every candidate generated
+  twice and scored by the same verifier.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>What is measured</th><th class="n">Result</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>Rank correlation, cached against full</td><td class="n best">0.905</td><td>the cached ordering is the full-compute ordering</td></tr>
+      <tr><td>Winner agreement</td><td class="n best">72%</td><td>the draft that wins is the sample that would have won</td></tr>
+      <tr><td>Search gain retained</td><td class="n best">94.7%</td><td>almost all the quality search buys, kept</td></tr>
+      <tr><td>Cost of full best-of-8</td><td class="n best">63%</td><td>the same search, for under two thirds of the compute</td></tr>
+    </tbody>
+  </table></div>
+  <p class="cap-t">Wan2.1-1.3B with EasyCache at &#964;&nbsp;=&nbsp;0.20, the paper's headline configuration.</p>
+
+  <h3>Calibrated threshold per model</h3>
+  <p>The exploration threshold is the one model-specific number. It tracks architecture
+  family rather than parameter count, so it is calibrated once per family and reused.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Model</th><th>Family</th><th class="n">Calibrated threshold</th><th class="n">Gain retained</th><th class="n">Exploration speedup</th></tr></thead>
+    <tbody>
+      <tr><td>Wan2.1-T2V-1.3B</td><td>Wan</td><td class="n">0.20</td><td class="n best">88.3%</td><td class="n best">2.41&#215;</td></tr>
+      <tr><td>Wan2.1-T2V-14B</td><td>Wan</td><td class="n">0.10</td><td class="n">87.5%</td><td class="n">2.05&#215;</td></tr>
+      <tr><td>Wan2.2-TI2V-5B</td><td>Wan</td><td class="n">0.10</td><td class="n">86.0%</td><td class="n">2.05&#215;</td></tr>
+      <tr><td>CogVideoX-5B</td><td>CogVideoX</td><td class="n">0.05</td><td class="n">85.9%</td><td class="n">1.78&#215;</td></tr>
+      <tr><td>HunyuanVideo</td><td>HunyuanVideo</td><td class="n">0.05</td><td class="n">85.1%</td><td class="n">1.77&#215;</td></tr>
+      <tr><td>LTX-Video</td><td>LTX</td><td class="n">0.02</td><td class="n">79.6%</td><td class="n">1.71&#215;</td></tr>
+    </tbody>
+  </table></div>
+  <p class="cap-t">The threshold is &#964;, the accumulated-change tolerance the cache
+  reuses features under. Gain retained is the fraction of what full best-of-8 search buys. Never copy
+  a threshold across families: driving LTX-2 at the Wan value halved winner agreement on
+  identical rollouts.</p>
+
+  <h3>Recalibrated on the models in this gallery</h3>
+  <p>The gallery runs newer and larger checkpoints than the paper's grid, on prompts of
+  its own, so every backbone shown here was recalibrated from its own rollouts rather
+  than inheriting a threshold. The rule is the paper's: take the largest &#964; whose gain
+  retained still clears 85%.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Model</th><th>Family</th><th class="n">Resolution</th><th class="n"><span style="text-transform:none;font-size:13px">&#964;</span></th>
+      <th class="n">Gain retained</th><th class="n">Winner agreement</th><th class="n">Rank corr.</th>
+      <th class="n">Exploration speedup</th></tr></thead>
+    <tbody>
+      <tr><td>LTX-2 19B</td><td>LTX</td><td class="n">1920&#215;1088</td><td class="n">0.02</td><td class="n best">85.0%</td><td class="n">59%</td><td class="n">0.74</td><td class="n best">1.64&#215;</td></tr>
+      <tr><td>Wan2.1-T2V 14B</td><td>Wan</td><td class="n">1280&#215;720</td><td class="n">0.10</td><td class="n best">85.9%</td><td class="n">56%</td><td class="n">0.86</td><td class="n best">2.23&#215;</td></tr>
+      <tr><td>HunyuanVideo 13B</td><td>HunyuanVideo</td><td class="n">1280&#215;720</td><td class="n">0.05</td><td class="n best">94.8%</td><td class="n">65%</td><td class="n">0.87</td><td class="n best">1.77&#215;</td></tr>
+      <tr><td>CogVideoX 5B</td><td>CogVideoX</td><td class="n">720&#215;480</td><td class="n">0.02</td><td class="n best">86.9%</td><td class="n">61%</td><td class="n">0.83</td><td class="n best">1.16&#215;</td></tr>
+      <tr><td>Wan2.1-T2V 1.3B</td><td>Wan</td><td class="n">832&#215;480</td><td class="n">0.20</td><td class="n best">90.0%</td><td class="n">67%</td><td class="n">0.87</td><td class="n best">2.28&#215;</td></tr>
+    </tbody>
+  </table></div>
+  <p class="cap-t">Measured on 222 prompts &#215; 8 seeds &#215; 2 arms, the same rollouts the
+  galleries below are drawn from. Gain retained is the share of the best-of-8 improvement over an
+  average draw that survives ranking drafts instead of finished samples; speedup is measured
+  wall-clock per draft. Copying a threshold across families is the one thing that breaks. LTX-2
+  driven at the Wan value collapses to 50.5% retained on identical rollouts, which is why it
+  runs at 0.02. CogVideoX is the other case: the paper's 0.05 retains only 71.4% on these
+  prompts and 0.03 only 81.2%, so it runs at 0.02 and buys a smaller, honest saving. Every
+  comparison below uses its model's calibrated threshold.</p>
+
+  <h3>Exploration engine</h3>
+  <p>CachedSearch takes the cache as a component. Any published engine can fill the slot,
+  trading fidelity against cost along one frontier.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Engine</th><th class="n">Gain retained</th><th class="n">Cost of best-of-8</th></tr></thead>
+    <tbody>
+      <tr><td>No caching (full best-of-8)</td><td class="n">100.0%</td><td class="n">621 s</td></tr>
+      <tr><td>PAB</td><td class="n best">99.5%</td><td class="n">493 s</td></tr>
+      <tr><td>FasterCache CFG-Cache</td><td class="n best">99.6%</td><td class="n">465 s</td></tr>
+      <tr><td>TeaCache</td><td class="n">93.2%</td><td class="n">365 s</td></tr>
+      <tr><td>EasyCache</td><td class="n">90.1%</td><td class="n best">346 s</td></tr>
+    </tbody>
+  </table></div>
+  <p class="cap-t">Search width 8; cost includes the full-compute commit.</p>
+</div></section>
+
+<div class="band" id="more"><div class="wide">
+  <div class="center"><h2>More comparisons</h2>
+  <p class="lead">Grouped by backbone, across five models from 1.3B to 19B and resolutions
+  from 480p to 1080p.</p></div>
+<h3 class="gh">LTX-2 19B <span>1920&#215;1088 &#183; 21 pairs</span></h3>
+    <div class="grid-wrap"><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_quirky_p04_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_quirky_p04_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.86</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.41</span></div>
+    <div class="mid"><span class="pr">A cat conducting an orchestra of mice with a matchstick baton in a candlelit hall</span>
+      <span class="det">+3.27 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_hero_p05_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_hero_p05_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.30</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.56</span></div>
+    <div class="mid"><span class="pr">A peacock unfurling its tail in slow motion, iridescent feathers catching low sun</span>
+      <span class="det">+2.86 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_ltxm_p10_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_ltxm_p10_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.58</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.62</span></div>
+    <div class="mid"><span class="pr">A hawk diving through a canyon, wings tucked, rock face rushing past</span>
+      <span class="det">+2.20 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_hero_p00_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_hero_p00_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.78</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.14</span></div>
+    <div class="mid"><span class="pr">Extreme slow motion close-up of a hummingbird hovering beside a scarlet flower, backlit wings, shallow depth of field</span>
+      <span class="det">+1.92 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_ltx1080cal_p18_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_ltx1080cal_p18_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.21</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.71</span></div>
+    <div class="mid"><span class="pr">A hot air balloon inflating at dawn on a frosty field, crew silhouetted against the burner flame</span>
+      <span class="det">+1.92 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_ltxm_p07_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_ltxm_p07_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.62</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.23</span></div>
+    <div class="mid"><span class="pr">A steam train thundering past a platform, leaves swirling in the draught</span>
+      <span class="det">+1.86 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_ltxi_p04_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_ltxi_p04_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.35</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.35</span></div>
+    <div class="mid"><span class="pr">An otter in a yellow lifejacket confidently riding a surfboard across turquoise tropical water, spray backlit by the sun</span>
+      <span class="det">+1.69 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_person_p01_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_person_p01_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.31</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.27</span></div>
+    <div class="mid"><span class="pr">Extreme slow motion of a swimmer breaking the surface, water sheeting off the face, droplets suspended, backlit</span>
+      <span class="det">+1.58 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_person_p02_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_person_p02_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.12</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.38</span></div>
+    <div class="mid"><span class="pr">Extreme slow motion of a violinist mid-stroke, rosin dust drifting through a raking stage light</span>
+      <span class="det">+1.50 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_quirky_p02_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_quirky_p02_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.64</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">-0.15</span></div>
+    <div class="mid"><span class="pr">A sloth in a pinstripe suit riding an escalator in a glass office atrium</span>
+      <span class="det">+1.48 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_ltxi_p00_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_ltxi_p00_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.23</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.67</span></div>
+    <div class="mid"><span class="pr">A stylish woman walks down a Tokyo street filled with warm glowing neon and animated city signage, wearing a black leather jacket and a long red dress, confident and casual</span>
+      <span class="det">+1.44 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_ltxi_p07_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_ltxi_p07_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.71</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">-0.28</span></div>
+    <div class="mid"><span class="pr">A gorgeously rendered papercraft coral reef, folded paper fish and sea creatures drifting through layered paper water</span>
+      <span class="det">+1.42 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_ltxm_p09_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_ltxm_p09_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.60</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.81</span></div>
+    <div class="mid"><span class="pr">A hot rod burning out under stadium lights, tyre smoke billowing</span>
+      <span class="det">+1.42 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_ltx1080cal_p02_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_ltx1080cal_p02_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.95</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">-0.67</span></div>
+    <div class="mid"><span class="pr">A humpback whale breaching the ocean surface at sunset, backlit spray, slow motion</span>
+      <span class="det">+1.28 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_person_p00_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_person_p00_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.41</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.60</span></div>
+    <div class="mid"><span class="pr">Extreme slow motion of a dancer spinning in a shaft of dusty light, dress and hair trailing, studio darkness</span>
+      <span class="det">+1.19 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_quirky_p05_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_quirky_p05_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.44</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.69</span></div>
+    <div class="mid"><span class="pr">A snail with a glowing mushroom shell crossing a mossy log at dusk</span>
+      <span class="det">+1.13 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_ltxi_p05_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_ltxi_p05_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.14</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.93</span></div>
+    <div class="mid"><span class="pr">Several giant woolly mammoths tread across a snowy meadow, long wool blowing in the wind, snow-capped mountains behind them</span>
+      <span class="det">+1.07 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_ltxm_p05_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_ltxm_p05_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.93</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">-0.89</span></div>
+    <div class="mid"><span class="pr">A snowboarder carving down a steep face, powder exploding behind</span>
+      <span class="det">+1.04 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_ltx1080cal_p00_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_ltx1080cal_p00_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.25</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.77</span></div>
+    <div class="mid"><span class="pr">A red fox trotting through fresh powder snow in a pine forest at golden hour, shallow depth of field</span>
+      <span class="det">+1.02 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_ltxm_p02_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_ltxm_p02_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.56</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.37</span></div>
+    <div class="mid"><span class="pr">A cyclist sprinting up an alpine switchback, dust trailing from the wheels</span>
+      <span class="det">+0.93 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_hero_p02_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_hero_p02_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.63</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">-0.17</span></div>
+    <div class="mid"><span class="pr">Slow motion water droplet striking a still pond, a perfect crown rising, morning light</span>
+      <span class="det">+0.46 gap &#183; LTX-2 19B &#183; 1920&#215;1088 &#183; different seed from full compute</span></div>
+  </figcaption></figure></div><h3 class="gh">Wan2.1-T2V 14B <span>1280&#215;720 &#183; 9 pairs</span></h3>
+    <div class="grid-wrap"><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_w14x_p00_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_w14x_p00_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.77</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.73</span></div>
+    <div class="mid"><span class="pr">A lighthouse beam sweeping through heavy fog over black rocks</span>
+      <span class="det">+0.95 gap &#183; Wan2.1-T2V 14B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_w14x_p01_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_w14x_p01_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.07</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.94</span></div>
+    <div class="mid"><span class="pr">A blacksmith quenching a glowing blade, steam bursting upward</span>
+      <span class="det">+0.87 gap &#183; Wan2.1-T2V 14B &#183; 1280&#215;720 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_w14i_p00_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_w14i_p00_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+1.05</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.85</span></div>
+    <div class="mid"><span class="pr">A samurai in full lacquered armour standing still in falling snow, cherry petals drifting past, cinematic</span>
+      <span class="det">+0.80 gap &#183; Wan2.1-T2V 14B &#183; 1280&#215;720 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_w14i_p03_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_w14i_p03_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.22</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.29</span></div>
+    <div class="mid"><span class="pr">An astronaut floating outside a space station with Earth turning below, the blue planet mirrored in the visor</span>
+      <span class="det">+0.51 gap &#183; Wan2.1-T2V 14B &#183; 1280&#215;720 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_w14L_p00_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_w14L_p00_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.56</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.68</span></div>
+    <div class="mid"><span class="pr">A monk in maroon robes moves along a low altar in a dim temple, touching a taper to one butter lamp after another until a long row of small flames is burning. Smoke rises in thin threads and gathers under the painted beams above. Hundreds of unlit lamps stretch away behind him. Medium shot, eye level, slow lateral dolly, 50mm lens. Practical light only, from the lamps themselves, warm orange against deep brown shadow. Low key, warm tones, cinematic, high detail.</span>
+      <span class="det">+1.12 gap &#183; Wan2.1-T2V 14B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_w14w_p01_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_w14w_p01_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+1.05</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.89</span></div>
+    <div class="mid"><span class="pr">A woman in a full kimono walking through a bamboo grove holding a paper umbrella</span>
+      <span class="det">+0.83 gap &#183; Wan2.1-T2V 14B &#183; 1280&#215;720 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_w14x_p03_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_w14x_p03_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.35</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.28</span></div>
+    <div class="mid"><span class="pr">A gondola gliding under a stone bridge in early morning mist</span>
+      <span class="det">+2.63 gap &#183; Wan2.1-T2V 14B &#183; 1280&#215;720 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_w14w_p03_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_w14w_p03_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.36</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.96</span></div>
+    <div class="mid"><span class="pr">A diver breaking through the surface into a cenote, blue light rising from far below</span>
+      <span class="det">+2.31 gap &#183; Wan2.1-T2V 14B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_w14w_p04_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_w14w_p04_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.72</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">-0.04</span></div>
+    <div class="mid"><span class="pr">A falcon striking a leather lure in mid air, feathers scattering, the falconer blurred behind</span>
+      <span class="det">+1.67 gap &#183; Wan2.1-T2V 14B &#183; 1280&#215;720 &#183; different seed from full compute</span></div>
+  </figcaption></figure></div><h3 class="gh">HunyuanVideo 13B <span>1280&#215;720 &#183; 18 pairs</span></h3>
+    <div class="grid-wrap"><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_huni_p06_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_huni_p06_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.16</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.73</span></div>
+    <div class="mid"><span class="pr">A red double-decker bus moving through rainy London at night, headlights streaking on wet asphalt</span>
+      <span class="det">+1.57 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_huni_p04_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_huni_p04_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.07</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.26</span></div>
+    <div class="mid"><span class="pr">Aerial view of a lone red kayak crossing a turquoise glacial lake, pale ice floes drifting past</span>
+      <span class="det">+1.33 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_huni_p01_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_huni_p01_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.19</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.12</span></div>
+    <div class="mid"><span class="pr">Close-up of a barista pouring latte art, a rosetta forming in the crema as steam rises</span>
+      <span class="det">+1.30 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_hun720_p07_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_hun720_p07_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.39</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.53</span></div>
+    <div class="mid"><span class="pr">Macro shot of a hummingbird hovering beside a bright pink flower, wings blurred, slow motion</span>
+      <span class="det">+1.14 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_huni_p02_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_huni_p02_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.26</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">-0.46</span></div>
+    <div class="mid"><span class="pr">A humpback whale breaching in the open ocean, water sheeting off its body in slow motion</span>
+      <span class="det">+0.80 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_huni_p00_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_huni_p00_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+1.11</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.71</span></div>
+    <div class="mid"><span class="pr">A tiger walking through a misty bamboo forest at sunrise, stripes cutting through shafts of light</span>
+      <span class="det">+0.60 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_huni_p07_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_huni_p07_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.90</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.45</span></div>
+    <div class="mid"><span class="pr">A cheetah sprinting across the savanna in slow motion, dust rising behind its paws</span>
+      <span class="det">+0.54 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_hun720_p06_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_hun720_p06_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+1.32</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.83</span></div>
+    <div class="mid"><span class="pr">A ballerina turning a slow pirouette on a dark stage under a single overhead spotlight</span>
+      <span class="det">+0.51 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_hun720_p08_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_hun720_p08_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+1.47</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.86</span></div>
+    <div class="mid"><span class="pr">An astronaut walking across red desert dunes on Mars, fine dust swirling around the boots</span>
+      <span class="det">+0.39 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_hun720_p10_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_hun720_p10_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+1.71</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.90</span></div>
+    <div class="mid"><span class="pr">A wolf howling on a snowy ridge under green aurora, wide cinematic shot</span>
+      <span class="det">+0.19 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_hunw_p01_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_hunw_p01_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.37</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.65</span></div>
+    <div class="mid"><span class="pr">A jellyfish pulsing in dark water, its translucent bell glowing faint blue</span>
+      <span class="det">+1.02 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_hunw_p03_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_hunw_p03_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.45</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.84</span></div>
+    <div class="mid"><span class="pr">A bee landing on a lavender stem in macro, pollen visible on its legs</span>
+      <span class="det">+0.39 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_hunw_p04_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_hunw_p04_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+1.55</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.89</span></div>
+    <div class="mid"><span class="pr">A vintage red convertible on a coastal cliff road at sunset, the ocean glittering below</span>
+      <span class="det">+0.34 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_hunw_p05_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_hunw_p05_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+1.75</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.94</span></div>
+    <div class="mid"><span class="pr">A wolf standing on a rock outcrop at dawn, breath steaming, a mist filled valley below</span>
+      <span class="det">+0.20 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_hunL_p00_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_hunL_p00_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.33</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.93</span></div>
+    <div class="mid"><span class="pr">A street sweeper in a navy work jacket moves a bamboo broom across the stones of a narrow Kyoto lane in the early morning. Fallen cherry petals gather ahead of the broom in a soft pink line, and a few lift and drift as he sweeps. Wooden shopfronts with closed shutters line both sides of the lane. Medium wide shot, static camera at eye level. Soft overcast dawn light, cool and even, with no hard shadows. Muted colours, quiet atmosphere, realistic style.</span>
+      <span class="det">+1.59 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_hunL_p03_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_hunL_p03_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.69</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.45</span></div>
+    <div class="mid"><span class="pr">An ice climber in a red shell jacket swings an ice axe into the blue face of a frozen waterfall. Chips of ice burst away and fall past the camera. Her crampons are set into the wall below and her rope hangs slack beside her. Medium shot from slightly below and to the side, camera static. Cold diffuse daylight from above, the ice glowing internal blue where it is thickest. Blue and white palette, high contrast, realistic style.</span>
+      <span class="det">+0.76 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_hunw_p00_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_hunw_p00_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.11</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.18</span></div>
+    <div class="mid"><span class="pr">A firefighter silhouetted against orange flames, an arc of water crossing the frame</span>
+      <span class="det">+1.28 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_hunL_p02_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_hunL_p02_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.95</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.85</span></div>
+    <div class="mid"><span class="pr">A shepherd in a brown waxed coat and a black and white border collie move a flock of sheep along a stone walled lane. The dog runs low and wide along the flank, turning the leaders back into the lane. Dust and loose wool hang in the air behind the flock. Wide shot from the front, camera tracking slowly backward. Warm low side light from a setting sun, long shadows across the track. Golden tones, pastoral atmosphere, realistic style.</span>
+      <span class="det">+1.79 gap &#183; HunyuanVideo 13B &#183; 1280&#215;720 &#183; different seed from full compute</span></div>
+  </figcaption></figure></div><h3 class="gh">CogVideoX 5B <span>720&#215;480 &#183; 9 pairs</span></h3>
+    <div class="grid-wrap"><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_cal02n_p07_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_cal02n_p07_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.84</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.43</span></div>
+    <div class="mid"><span class="pr">A chameleon painting a canvas with its tail, colours shifting on its skin</span>
+      <span class="det">+2.26 gap &#183; CogVideoX 5B &#183; 720&#215;480 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_cal02o_p03_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_cal02o_p03_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.71</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.42</span></div>
+    <div class="mid"><span class="pr">A field of sunflowers turning as storm clouds sweep overhead</span>
+      <span class="det">+2.12 gap &#183; CogVideoX 5B &#183; 720&#215;480 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_cal02j_p06_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_cal02j_p06_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.57</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">-0.02</span></div>
+    <div class="mid"><span class="pr">A goldfish swimming through a flooded city street, sunlight rippling on the walls</span>
+      <span class="det">+1.55 gap &#183; CogVideoX 5B &#183; 720&#215;480 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_cal02o_p01_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_cal02o_p01_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.78</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.79</span></div>
+    <div class="mid"><span class="pr">A lantern-lit wooden boat drifting through a flooded forest at dusk</span>
+      <span class="det">+1.01 gap &#183; CogVideoX 5B &#183; 720&#215;480 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_cal02j_p04_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_cal02j_p04_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+0.68</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.56</span></div>
+    <div class="mid"><span class="pr">A lantern festival at night, hundreds of paper lanterns rising into the dark sky</span>
+      <span class="det">+0.88 gap &#183; CogVideoX 5B &#183; 720&#215;480 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_cal02o_p00_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_cal02o_p00_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+1.15</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.94</span></div>
+    <div class="mid"><span class="pr">A hot air balloon rising past a waterfall in a jungle gorge, mist drifting</span>
+      <span class="det">+0.79 gap &#183; CogVideoX 5B &#183; 720&#215;480 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_cal02j_p07_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_cal02j_p07_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+1.07</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.76</span></div>
+    <div class="mid"><span class="pr">A snow globe with a tiny village inside, snow swirling as it settles</span>
+      <span class="det">+0.69 gap &#183; CogVideoX 5B &#183; 720&#215;480 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_cal02j_p02_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_cal02j_p02_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+1.43</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.81</span></div>
+    <div class="mid"><span class="pr">A red panda eating bamboo in a misty forest</span>
+      <span class="det">+0.38 gap &#183; CogVideoX 5B &#183; 720&#215;480 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_cal02n_p03_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_cal02n_p03_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">+1.42</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.72</span></div>
+    <div class="mid"><span class="pr">A flamingo standing on one leg on a surfboard riding a small wave</span>
+      <span class="det">+0.30 gap &#183; CogVideoX 5B &#183; 720&#215;480 &#183; different seed from full compute</span></div>
+  </figcaption></figure></div><h3 class="gh">Wan2.1-T2V 1.3B <span>832&#215;480 &#183; 13 pairs</span></h3>
+    <div class="grid-wrap"><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_b1_gate_vbench_67054730_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_b1_gate_vbench_67054730_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.36</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.91</span></div>
+    <div class="mid"><span class="pr">An astronaut feeding ducks on a sunny afternoon, reflection from the water.</span>
+      <span class="det">+3.26 gap &#183; Wan2.1-T2V 1.3B &#183; 832&#215;480 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_b1_gate_vqares_49663105_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_b1_gate_vqares_49663105_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.58</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.67</span></div>
+    <div class="mid"><span class="pr">An astronaut planting a flag on a red rocky planet, dust drifting</span>
+      <span class="det">+3.25 gap &#183; Wan2.1-T2V 1.3B &#183; 832&#215;480 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_b1_gate_vqares_7075613_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_b1_gate_vqares_7075613_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.69</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.99</span></div>
+    <div class="mid"><span class="pr">Morning fog lifting off a mirror-calm alpine lake</span>
+      <span class="det">+2.68 gap &#183; Wan2.1-T2V 1.3B &#183; 832&#215;480 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_b1_gate_vbench_28794398_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_b1_gate_vbench_28794398_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.97</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.33</span></div>
+    <div class="mid"><span class="pr">An artist brush painting on a canvas close up.</span>
+      <span class="det">+2.30 gap &#183; Wan2.1-T2V 1.3B &#183; 832&#215;480 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_demo_w13q2_p06_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_demo_w13q2_p06_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.41</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.89</span></div>
+    <div class="mid"><span class="pr">A capybara soaking in a steaming hot spring while snow falls around it</span>
+      <span class="det">+2.30 gap &#183; Wan2.1-T2V 1.3B &#183; 832&#215;480 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_b1_gate_vqares_53185113_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_b1_gate_vqares_53185113_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.16</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.87</span></div>
+    <div class="mid"><span class="pr">A stop-motion clay dinosaur stomping through a paper city</span>
+      <span class="det">+2.03 gap &#183; Wan2.1-T2V 1.3B &#183; 832&#215;480 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_b1_gate_vqares_10597825_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_b1_gate_vqares_10597825_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.93</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.06</span></div>
+    <div class="mid"><span class="pr">A surfer riding inside a large barrel wave</span>
+      <span class="det">+1.99 gap &#183; Wan2.1-T2V 1.3B &#183; 832&#215;480 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_b1_gate_vbench_35551940_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_b1_gate_vbench_35551940_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.01</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.94</span></div>
+    <div class="mid"><span class="pr">A panda standing on a surfboard in the ocean in sunset.</span>
+      <span class="det">+1.95 gap &#183; Wan2.1-T2V 1.3B &#183; 832&#215;480 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_b1_gate_vbench_24761283_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_b1_gate_vbench_24761283_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.65</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.25</span></div>
+    <div class="mid"><span class="pr">A space shuttle launching into orbit, with flames and smoke billowing out from the engines</span>
+      <span class="det">+1.90 gap &#183; Wan2.1-T2V 1.3B &#183; 832&#215;480 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_b1_gate_vbench_32544631_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_b1_gate_vbench_32544631_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.23</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.64</span></div>
+    <div class="mid"><span class="pr">a motorcycle gliding through a snowy field</span>
+      <span class="det">+1.86 gap &#183; Wan2.1-T2V 1.3B &#183; 832&#215;480 &#183; different seed from full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_b1_gate_vqares_51751628_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_b1_gate_vqares_51751628_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-0.37</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+1.43</span></div>
+    <div class="mid"><span class="pr">Fireworks exploding over a city skyline reflected in a river</span>
+      <span class="det">+1.80 gap &#183; Wan2.1-T2V 1.3B &#183; 832&#215;480 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_b1_gate_vbench_21214611_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_b1_gate_vbench_21214611_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-1.09</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.71</span></div>
+    <div class="mid"><span class="pr">A tropical beach at sunrise, with palm trees and crystal-clear water in the foreground</span>
+      <span class="det">+1.80 gap &#183; Wan2.1-T2V 1.3B &#183; 832&#215;480 &#183; same seed as full compute</span></div>
+  </figcaption></figure><figure class="cmp grid">
+  <div class="stage"><video data-src="assets/v/grid_b1_gate_vqares_61942811_draw.mp4" autoplay muted loop playsinline preload="none"></video>
+  <video data-src="assets/v/grid_b1_gate_vqares_61942811_pick.mp4" autoplay muted loop playsinline preload="none"></video></div>
+  <figcaption>
+    <div class="side"><span class="who">One sample</span><span class="s bad">-2.06</span></div>
+    <div class="side"><span class="who ours">CachedSearch</span><span class="s good">+0.08</span></div>
+    <div class="mid"><span class="pr">An old film projector flickering in a dark room</span>
+      <span class="det">+2.13 gap &#183; Wan2.1-T2V 1.3B &#183; 832&#215;480 &#183; same seed as full compute</span></div>
+  </figcaption></figure></div>
+</div></div>
+
+<section id="cite"><div class="wrap">
+  <h2>Citation</h2>
+<pre>@article{saini2026cachedsearch,
+  title   = {CachedSearch: Training-Free Cached Exploration for Test-Time Search in Video Diffusion},
+  author  = {Saini, Shreshth and Birkbeck, Neil and Wang, Yilin and Adsumilli, Balu and Bovik, Alan C.},
+  year    = {2026},
+  eprint  = {2607.23159},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.AI}
+}</pre>
+</div></section>
+
+<footer>arXiv:2607.23159 &#183; every number on this page re-derives from the released score records</footer>
 
 <script>
+// Below the fold every clip ships with preload="none"; hand it its source only
+// when it is about to be seen, so the page opens on the hero instead of on 200 files.
 (function(){
-  // Measured operating points (Wan2.1-T2V-1.3B, tau = 0.10).
-  // cost_full = N * 68.3 s; cost_ours = N * 34.7 s + 68.3 s (one full commit).
-  // Capture values are measured, not interpolated.
-  var CF = 68.3, CC = 34.7;
-  var CAP = {2: "89.9%", 4: "89.6%", 8: "94.7%", 16: "95.7%"};
-  var NOTE = {
-    2: "At N = 2 the mandatory full-compute delivery eats the saving: this is the break-even width.",
-    4: "At N = 4 the commit is amortized over four cheap drafts.",
-    8: "At N = 8, recommit costs 8 cached drafts plus one full rollout.",
-    16: "Capture rises with width: misses land on near-equal candidates, and wide pools hold more of those."
-  };
-  var seg = document.getElementById('seg');
-  if (!seg) return;
-  function fmt(x){ return Math.round(x) + " s"; }
-  function set(n){
-    var full = n * CF, ours = n * CC + CF, ratio = ours / full;
-    document.getElementById('bar-full').style.width = "100%";
-    document.getElementById('bar-ours').style.width = (ratio * 100).toFixed(1) + "%";
-    document.getElementById('val-full').textContent = fmt(full);
-    document.getElementById('val-ours').textContent = fmt(ours);
-    document.getElementById('r-cost').textContent = Math.round(ratio * 100) + "%";
-    document.getElementById('r-cap').textContent = CAP[n];
-    document.getElementById('r-save').textContent = fmt(full - ours);
-    document.getElementById('r-note').textContent = NOTE[n];
-    Array.prototype.forEach.call(seg.querySelectorAll('button'), function(b){
-      b.setAttribute('aria-pressed', b.dataset.n === String(n) ? 'true' : 'false');
-    });
+  var vids = document.querySelectorAll("video[data-src]");
+  if (!("IntersectionObserver" in window)) {
+    vids.forEach(function(v){ v.src = v.dataset.src; }); return;
   }
-  seg.addEventListener('click', function(e){
-    var b = e.target.closest('button');
-    if (b) set(parseInt(b.dataset.n, 10));
-  });
-  set(8);
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      var v = en.target;
+      if (en.isIntersecting) {
+        if (!v.src) { v.src = v.dataset.src; }
+        var pr = v.play(); if (pr && pr.catch) pr.catch(function(){});
+      } else if (v.src) {
+        v.pause();                       // keep decoders free while scrolling
+      }
+    });
+  }, {rootMargin: "600px 0px"});
+  vids.forEach(function(v){ io.observe(v); });
 })();
 </script>
 
