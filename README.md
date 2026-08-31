@@ -60,11 +60,12 @@ described above. The paper's measured numbers are on Wan2.1-1.3B. A gallery of 1
 comparisons across five backbones, from 1.3B to 19B and 480p to 1080p, is on the
 [project page](https://shreshthsaini.github.io/CachedSearch/).
 
-**What search buys.** "A diver breaking through the surface into a cenote, blue light
-rising from far below", Wan2.1-T2V-14B at 720p. On the left an unlucky seed: a flat
-wall of water with no diver and no cavern. On the right the seed CachedSearch
-selected. Both are delivered at full compute, so search only chooses between them.
-This is a selected example; the aggregate effect is in the capture and regret numbers.
+**What search buys.** "A polar bear wearing sunglasses floating on a pink inflatable
+flamingo in a swimming pool", LTX-2 19B at 1920x1088. On the left an unlucky seed,
+which gives up on the bear, the sunglasses and the flamingo together. On the right the
+seed CachedSearch selected. Both are delivered at full compute, so search only chooses
+between them. Verifier -1.43 against +1.45. This is a selected example; the aggregate
+effect is in the capture and regret numbers.
 
 <p align="center"><img src="assets/gif_search.gif" alt="unlucky sample vs CachedSearch pick" width="720"></p>
 
@@ -74,6 +75,14 @@ what the verifier ranks; the content it ranks on is preserved. On this pair the
 verifier scores both at 1.85.
 
 <p align="center"><img src="assets/gif_twins.gif" alt="full compute vs cached draft, same seed" width="720"></p>
+
+**Across backbones.** Eight more pairs, three backbones, three resolutions. Each is two
+full-compute rollouts of one prompt where the only difference is which seed the verifier
+chose. The unlucky seed drops the octopus and leaves a piano alone on the seabed, renders
+the rally car as a smeared white blob, gives the owl the book but not the reading glasses,
+and puts the camera beside the SUV instead of behind it.
+
+<p align="center"><img src="assets/fig_gallery.png" alt="Eight side-by-side comparisons across LTX-2, HunyuanVideo and CogVideoX" width="900"></p>
 
 **The honest edge.** At an aggressive threshold (tau = 0.20), keeping the
 cached draft instead of recommitting dampens motion. This is why commit is the
