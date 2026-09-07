@@ -131,7 +131,8 @@ you can adopt it in three steps.
 **1. Install and import.**
 
 ```bash
-pip install -r requirements.txt
+pip install cachedsearch                 # the search loop and cache wrapper
+pip install "cachedsearch[imagereward]"  # plus the default ImageReward verifier
 ```
 
 ```python

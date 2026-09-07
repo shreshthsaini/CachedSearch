@@ -3,3 +3,6 @@ __pycache__/
 *.pt
 videos/
 hf_cache/
+dist/
+build/
+*.egg-info/

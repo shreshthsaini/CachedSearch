@@ -18,7 +18,7 @@ from typing import Callable, Iterable, Sequence
 import numpy as np
 import torch
 
-from videogen1.caching import CacheConfig, wrap_pipeline
+from .caching import CacheConfig, wrap_pipeline
 
 from .verifiers import Verifier, default_verifier, imagereward_verifier
 
