@@ -167,6 +167,8 @@ caching changes which candidate you select, never the quality of what ships.
 
 A runnable end-to-end script is in [`examples/run_wan.py`](examples/run_wan.py).
 
+ComfyUI users: the same search is a drop-in KSampler replacement in [ComfyUI-CachedSearch](https://github.com/shreshthsaini/ComfyUI-CachedSearch), with the drafts running under ComfyUI's native EasyCache. A copy of the search loop built on Diffusers' own `FirstBlockCacheConfig` is in the Diffusers [community scripts](https://github.com/huggingface/diffusers/blob/main/examples/community/README_community_scripts.md).
+
 **3. Calibrate `tau` if your model is not Wan.** The threshold is the one
 model-specific number. Fidelity tracks architecture family rather than
 parameter count, so calibrate once per family and reuse it across sizes.
